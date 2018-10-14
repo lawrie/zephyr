@@ -1,0 +1,6 @@
+if BOARD_VEXRISCV_SIM
+
+config BOARD
+	default "board_vexriscv_sim"
+
+endif

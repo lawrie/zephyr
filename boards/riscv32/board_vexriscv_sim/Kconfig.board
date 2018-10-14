@@ -1,0 +1,3 @@
+config BOARD_VEXRISCV_SIM
+	bool "VexRiscv simulator"
+	depends on SOC_RISCV32_VEXRISCV_SIM
