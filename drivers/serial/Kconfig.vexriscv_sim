@@ -1,0 +1,7 @@
+
+menuconfig UART_VEXRISCV_SIM
+	bool "vexriscv sim UART driver"
+	depends on SOC_RISCV32_VEXRISCV_SIM
+	select SERIAL_HAS_DRIVER
+	help
+	  Enable the vexriscv sim UART driver.
