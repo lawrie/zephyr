@@ -1,0 +1,7 @@
+
+menuconfig UART_VEXRISCV_GPIO
+	bool "vexriscv UART driver"
+	select SERIAL_HAS_DRIVER
+	help
+	  Enable the vexriscv UART driver.
+

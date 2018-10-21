@@ -24,5 +24,6 @@ zephyr_library_sources_if_kconfig(uart_stm32.c)
 zephyr_library_sources_if_kconfig(uart_sam0.c)
 zephyr_library_sources_if_kconfig(usart_mcux_lpc.c)
 zephyr_library_sources_if_kconfig(uart_vexriscv_sim.c)
+zephyr_library_sources_if_kconfig(uart_vexriscv_gpio.c)
 
 zephyr_library_sources_ifdef(CONFIG_USERSPACE   uart_handlers.c)
