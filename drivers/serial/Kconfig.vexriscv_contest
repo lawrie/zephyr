@@ -1,5 +1,5 @@
 
-menuconfig UART_VEXRISCV_GPIO
+menuconfig UART_VEXRISCV_CONTEST
 	bool "vexriscv UART driver"
 	select SERIAL_HAS_DRIVER
 	help

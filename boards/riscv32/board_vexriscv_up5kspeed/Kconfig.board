@@ -1,3 +1,0 @@
-config BOARD_VEXRISCV_UP5KSPEED
-	bool "VexRiscv"
-	depends on SOC_RISCV32_VEXRISCV_UP5KSPEED

@@ -103,6 +103,6 @@ source "drivers/serial/Kconfig.sam0"
 
 source "drivers/serial/Kconfig.vexriscv_sim"
 
-source "drivers/serial/Kconfig.vexriscv_gpio"
+source "drivers/serial/Kconfig.vexriscv_contest"
 
 endif

@@ -1,6 +1,0 @@
-if BOARD_VEXRISCV_UP5KSPEED
-
-config BOARD
-	default "board_vexriscv_up5kspeed"
-
-endif
