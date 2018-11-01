@@ -1,0 +1,10 @@
+if SOC_SERIES_RISCV32_VEXRISCV
+
+config SOC_SERIES
+	string
+	default "vexriscv"
+
+source "arch/riscv32/soc/riscv-privilege/vexriscv/Kconfig.defconfig.vexriscv_contest_up5kperf"
+
+endif # SOC_SERIES_RISCV32_VEXRISCV
+

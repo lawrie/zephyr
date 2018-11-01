@@ -1,0 +1,12 @@
+choice
+prompt "VexRiscv implementation"
+depends on SOC_SERIES_RISCV32_VEXRISCV
+
+config SOC_VEXRISCV_CONTEST_UP5KPERF
+	bool "VexRiscv SoC"
+	select ATOMIC_OPERATIONS_C
+
+endchoice
+
+
+

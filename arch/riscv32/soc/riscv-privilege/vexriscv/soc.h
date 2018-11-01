@@ -1,5 +1,5 @@
-#ifndef __RISCV32_VEXRISCV_CONTEST_H_
-#define __RISCV32_VEXRISCV_CONTEST_H_
+#ifndef __RISCV32_VEXRISCV_H_
+#define __RISCV32_VEXRISCV_H_
 
 #include <soc_common.h>
 
@@ -12,4 +12,4 @@
 #define RISCV_RAM_BASE               CONFIG_RISCV_RAM_BASE_ADDR
 #define RISCV_RAM_SIZE               CONFIG_RISCV_RAM_SIZE
 
-#endif /* __RISCV32_MIV_SOC_H_ */
+#endif /* __RISCV32_VEXRISCV_H_ */
