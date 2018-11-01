@@ -1,0 +1,48 @@
+if SOC_SERIES_RISCV32_VEXRISCV_CONTEST
+
+config SOC_SERIES
+	string
+	default "vexriscv_contest"
+
+
+config SYS_CLOCK_HW_CYCLES_PER_SEC
+	int
+	default 1000000
+
+config RISCV_SOC_INTERRUPT_INIT
+	bool
+	default y
+
+config RISCV_HAS_CPU_IDLE
+	bool
+	default n
+
+config RISCV_HAS_PLIC
+	bool
+	default n
+
+config NUM_IRQS
+	int
+	default 42
+
+config XIP
+	bool
+	default y
+
+config RISCV_ROM_BASE_ADDR
+	hex
+	default 0x80000
+
+config RISCV_ROM_SIZE
+	hex
+	default 0x10000
+
+config RISCV_RAM_BASE_ADDR
+	hex
+	default	0x90000
+
+config RISCV_RAM_SIZE
+	hex
+	default 0x10000
+
+endif # SOC_SERIES_RISCV32_VEXRISCV_CONTEST

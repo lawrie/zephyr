@@ -1,0 +1,6 @@
+if BOARD_VEXRISCV_CONTEST_UP5KPERF_EVN
+
+config BOARD
+	default "vexriscv_contest_up5kperf_evn"
+
+endif

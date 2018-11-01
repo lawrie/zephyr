@@ -12,7 +12,7 @@
 
 static unsigned char uart_vexriscv_contest_poll_out(struct device *dev, unsigned char c)
 {
-	volatile int *uart = (int*)0xF0000000;
+	volatile int *uart = (int*)0xF0000;
     while(uart[0]);
     uart[0] = c;
 	return c;
@@ -38,7 +38,7 @@ static const struct uart_driver_api uart_vexriscv_contest_driver_api = {
 
 
 DEVICE_AND_API_INIT(uart_vexriscv_contest_0, "uart0",
-		    uart_vexriscv_contest_init, 0xF0010000,
+		    uart_vexriscv_contest_init, NULL,
 		    NULL,
 		    PRE_KERNEL_1, CONFIG_KERNEL_INIT_PRIORITY_DEVICE,
 		    (void *)&uart_vexriscv_contest_driver_api);
