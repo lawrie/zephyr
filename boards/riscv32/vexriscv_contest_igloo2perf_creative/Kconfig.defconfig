@@ -1,0 +1,6 @@
+if BOARD_VEXRISCV_CONTEST_IGLOO2PERF_CREATIVE
+
+config BOARD
+	default "vexriscv_contest_igloo2perf_creative"
+
+endif
