@@ -1,6 +1,0 @@
-if VEXRISCV_CONTEST_FAST_UP5KEV
-
-config BOARD
-	default "vexriscv_contest_fast_up5kev"
-
-endif

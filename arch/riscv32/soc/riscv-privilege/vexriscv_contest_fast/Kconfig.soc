@@ -1,9 +1,0 @@
-choice
-prompt "VexRiscv implementation"
-depends on SOC_SERIES_RISCV32_VEXRISCV_CONTEST_FAST
-
-config SOC_RISCV32_VEXRISCV_CONTEST_FAST
-	bool "VexRiscv simulation system implementation"
-	select ATOMIC_OPERATIONS_C
-
-endchoice

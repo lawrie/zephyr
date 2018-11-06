@@ -1,6 +1,0 @@
-config SOC_SERIES_RISCV32_VEXRISCV_CONTEST_FAST
-	bool "VexRiscv implementation"
-	depends on RISCV32
-	select SOC_FAMILY_RISCV_PRIVILEGE
-	help
-	Enable support for VexRiscv
