@@ -40,4 +40,16 @@ config RISCV_RAM_SIZE
 	hex
 	default 0x10000
 
+config RISCV_MTIME_BASE
+	hex
+	default 0xF0010
+
+config RISCV_MTIMECMP_BASE
+	hex
+	default 0xF0018
+
+
+config UART_BASE
+	hex
+	default 0xF0000
 endif

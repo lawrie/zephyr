@@ -1,0 +1,6 @@
+if BOARD_VEXRISCV_CONTEST_UP5KAREA_EVN
+
+config BOARD
+	default "vexriscv_contest_up5karea_evn"
+
+endif

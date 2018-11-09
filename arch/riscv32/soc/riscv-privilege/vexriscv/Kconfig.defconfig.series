@@ -5,6 +5,7 @@ config SOC_SERIES
 	default "vexriscv"
 
 source "arch/riscv32/soc/riscv-privilege/vexriscv/Kconfig.defconfig.vexriscv_contest_up5kperf"
+source "arch/riscv32/soc/riscv-privilege/vexriscv/Kconfig.defconfig.vexriscv_contest_up5karea"
 source "arch/riscv32/soc/riscv-privilege/vexriscv/Kconfig.defconfig.vexriscv_contest_igloo2perf"
 
 endif # SOC_SERIES_RISCV32_VEXRISCV

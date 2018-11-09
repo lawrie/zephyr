@@ -5,8 +5,9 @@
 
 
 /* Timer configuration */
-#define RISCV_MTIME_BASE             0xF0010
-#define RISCV_MTIMECMP_BASE          0xF0018
+#define RISCV_MTIME_BASE             CONFIG_RISCV_MTIME_BASE
+#define RISCV_MTIMECMP_BASE          CONFIG_RISCV_MTIMECMP_BASE
+
 
 /* lib-c hooks required RAM defined variables */
 #define RISCV_RAM_BASE               CONFIG_RISCV_RAM_BASE_ADDR

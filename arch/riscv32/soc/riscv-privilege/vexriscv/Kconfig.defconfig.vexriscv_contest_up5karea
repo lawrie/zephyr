@@ -1,8 +1,12 @@
-if SOC_VEXRISCV_CONTEST_IGLOO2PERF
+if SOC_VEXRISCV_CONTEST_UP5KAREA
 
 config SOC
 	string
-	default "vexriscv_contest_igloo2perf"
+	default "vexriscv_contest_up5karea"
+
+config COMPILER_OPT
+    string
+    default "-march=RV32I"
 
 config RISCV_SOC_INTERRUPT_INIT
 	bool
@@ -26,29 +30,29 @@ config XIP
 
 config RISCV_ROM_BASE_ADDR
 	hex
-	default 0x80000
+	default 0x00010
 
 config RISCV_ROM_SIZE
 	hex
-	default 0x10000
+	default 0x07000
 
 config RISCV_RAM_BASE_ADDR
 	hex
-	default	0x90000
+	default	0x08000
 
 config RISCV_RAM_SIZE
 	hex
-	default 0x10000
+	default 0x07000
 
 config RISCV_MTIME_BASE
 	hex
-	default 0xF0010
+	default 0x70010
 
 config RISCV_MTIMECMP_BASE
 	hex
-	default 0xF0018
+	default 0x70018
 
 config UART_BASE
 	hex
-	default 0xF0000
+	default 0x70000
 endif

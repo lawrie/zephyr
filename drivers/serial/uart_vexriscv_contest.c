@@ -12,7 +12,7 @@
 
 static unsigned char uart_vexriscv_contest_poll_out(struct device *dev, unsigned char c)
 {
-	volatile int *uart = (int*)0xF0000;
+	volatile int *uart = (int*)CONFIG_UART_BASE;
     while(uart[0]);
     uart[0] = c;
 	return c;
