@@ -44,15 +44,15 @@ config RISCV_RAM_SIZE
 	hex
 	default 0x07000
 
-config RISCV_MTIME_BASE
-	hex
-	default 0x70010
-
-config RISCV_MTIMECMP_BASE
-	hex
-	default 0x70018
-
 config UART_BASE
 	hex
 	default 0x70000
+
+config VEXRISCV_TIMER_COUNTER_BASE
+    hex
+    default 0x70010
+
+config VEXRISCV_TIMER_CMP_BASE
+    hex
+    default 0x70018
 endif
