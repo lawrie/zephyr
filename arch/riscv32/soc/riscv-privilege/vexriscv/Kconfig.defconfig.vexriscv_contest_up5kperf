@@ -26,7 +26,7 @@ config XIP
 
 config RISCV_ROM_BASE_ADDR
 	hex
-	default 0x80000
+	default 0x10000
 
 config RISCV_ROM_SIZE
 	hex
@@ -34,7 +34,7 @@ config RISCV_ROM_SIZE
 
 config RISCV_RAM_BASE_ADDR
 	hex
-	default	0x90000
+	default	0x00000
 
 config RISCV_RAM_SIZE
 	hex
@@ -42,14 +42,14 @@ config RISCV_RAM_SIZE
 
 config RISCV_MTIME_BASE
 	hex
-	default 0xF0010
+	default 0x70010
 
 config RISCV_MTIMECMP_BASE
 	hex
-	default 0xF0018
+	default 0x70018
 
 
 config UART_BASE
 	hex
-	default 0xF0000
+	default 0x70000
 endif
