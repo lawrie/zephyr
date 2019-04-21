@@ -5,6 +5,7 @@ config SOC
 	default "vexriscv_cpp_regression"
 
 config RISCV_ARCH
+    prompt "Trigger mode"
 	string
 	default "rv32i"
 
