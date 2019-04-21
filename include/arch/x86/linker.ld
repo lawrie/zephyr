@@ -69,12 +69,23 @@ SECTIONS
 
 #include <linker/rel-sections.ld>
 
+    /DISCARD/ :
+	{
+	*(.plt)
+	}
+
+    /DISCARD/ :
+	{
+	*(.iplt)
+	}
+
+
 	GROUP_START(ROMABLE_REGION)
 #ifdef CONFIG_REALMODE
 	/* 16-bit sections */
 	. = PHYS_RAM_ADDR;
 
-	SECTION_PROLOGUE(boot, (OPTIONAL),)
+	SECTION_PROLOGUE(boot,,)
 	{
 	*(.boot)
 	. = ALIGN(16);
@@ -88,7 +99,7 @@ SECTIONS
 #else
 	_image_text_start = .;
 #endif
-	SECTION_PROLOGUE(_TEXT_SECTION_NAME, (OPTIONAL),)
+	SECTION_PROLOGUE(_TEXT_SECTION_NAME,,)
 	{
 	. = CONFIG_TEXT_SECTION_OFFSET;
 	*(.text_start)
@@ -96,6 +107,7 @@ SECTIONS
 	*(.text)
 	*(".text.*")
 	*(.gnu.linkonce.t.*)
+	*(.eh_frame_hdr)
 	*(.eh_frame)
 	*(.init)
 	*(.fini)
@@ -105,14 +117,16 @@ SECTIONS
 
 #include <linker/kobject-text.ld>
 
+	MMU_PAGE_ALIGN
 	} GROUP_LINK_IN(ROMABLE_REGION)
 
 	_image_text_end = .;
+	_image_text_size = _image_text_end - _image_text_start;
 	_image_rodata_start = .;
 
 #include <linker/common-rom.ld>
 
-	SECTION_PROLOGUE(_RODATA_SECTION_NAME, (OPTIONAL),)
+	SECTION_PROLOGUE(_RODATA_SECTION_NAME,,)
 	{
 	*(.rodata)
 	*(".rodata.*")
@@ -150,77 +164,69 @@ SECTIONS
 #include <linker/kobject-rom.ld>
 	} GROUP_LINK_IN(ROMABLE_REGION)
 
-	_image_rodata_end = .;
 	MMU_PAGE_ALIGN
+	/* ROM ends here, position counter will now be in RAM areas */
 #ifdef CONFIG_XIP
-	/* Kernel ROM extends to the end of flash. Need to do this to program
-	 * the MMU
+	/* For XIP systems, the kernel object tables are kept at the end
+	 * of ROM and are unpredictable in size; the true size of the ROM
+	 * region isn't know when the MMU tables are generated.
+	 * Just set the rom region to extend to the end of flash.
 	 */
 	_image_rom_end = _image_rom_start + KB(DT_ROM_SIZE);
 #else
-	/* ROM ends here, position counter will now be in RAM areas */
 	_image_rom_end = .;
 #endif
 	_image_rom_size = _image_rom_end - _image_rom_start;
-
+	_image_rodata_end = _image_rom_end;
+	_image_rodata_size = _image_rodata_end - _image_rodata_start;
 	GROUP_END(ROMABLE_REGION)
-
+	/*
+	 * Needed for dynamic linking which we do not have, do discard
+	 */
+	/DISCARD/ : {
+		*(.got.plt)
+		*(.igot.plt)
+		*(.got)
+		*(.igot)
+	}
 	/* RAMABLE_REGION */
 	GROUP_START(RAMABLE_REGION)
 
+#ifdef CONFIG_COVERAGE_GCOV
+	SECTION_PROLOGUE(_GCOV_BSS_SECTION_NAME, (NOLOAD),)
+	{
+		MMU_PAGE_ALIGN
+		__gcov_bss_start = .;
+		*(".bss.__gcov0.*");
+		. = ALIGN(4);
+		MMU_PAGE_ALIGN
+		__gcov_bss_end = .;
+	}GROUP_DATA_LINK_IN(RAMABLE_REGION, RAMABLE_REGION)
+
+	__gcov_bss_num_words = ((__gcov_bss_end - __gcov_bss_start) >> 2);
+	__gcov_bss_size = __gcov_bss_end - __gcov_bss_start;
+#endif /* CONFIG_COVERAGE_GCOV */
+
+#ifdef CONFIG_USERSPACE
 	/* APP SHARED MEMORY REGION */
-	SECTION_PROLOGUE(_APP_SMEM_SECTION_NAME, (OPTIONAL),)
-	{
-		_image_ram_start = .;
-		_app_smem_start = .;
-		APP_SMEM_SECTION()
-		MMU_PAGE_ALIGN
-		_app_smem_end = .;
-	} GROUP_DATA_LINK_IN(RAMABLE_REGION, RAMABLE_REGION)
+#define SMEM_PARTITION_ALIGN(size) MMU_PAGE_ALIGN
+#define APP_SHARED_ALIGN  MMU_PAGE_ALIGN
 
+#include <app_smem.ld>
+
+	_image_ram_start = _app_smem_start;
 	_app_smem_size = _app_smem_end - _app_smem_start;
+	_app_smem_num_words = _app_smem_size >> 2;
 	_app_smem_rom_start = LOADADDR(_APP_SMEM_SECTION_NAME);
-#ifdef CONFIG_APPLICATION_MEMORY
-	SECTION_DATA_PROLOGUE(_APP_DATA_SECTION_NAME, (OPTIONAL),)
-	{
-#ifndef CONFIG_XIP
-		MMU_PAGE_ALIGN
-#endif
-		__app_ram_start = .;
-		__app_data_ram_start = .;
-		APP_INPUT_SECTION(.data)
-		APP_INPUT_SECTION(".data.*")
-		__app_data_ram_end = .;
-	} GROUP_DATA_LINK_IN(RAMABLE_REGION, ROMABLE_REGION)
+	_app_smem_num_words = _app_smem_size >> 2;
+#endif /* CONFIG_USERSPACE */
 
-	__app_data_rom_start = LOADADDR(_APP_DATA_SECTION_NAME);
-
-	SECTION_PROLOGUE(_APP_BSS_SECTION_NAME, (NOLOAD OPTIONAL),)
-	{
-		__app_bss_start = .;
-		APP_INPUT_SECTION(.bss)
-		APP_INPUT_SECTION(".bss.*")
-		APP_INPUT_SECTION(COMMON)
-		__app_bss_end = .;
-	} GROUP_DATA_LINK_IN(RAMABLE_REGION, RAMABLE_REGION)
-
-	__app_bss_num_words = (__app_bss_end - __app_bss_start) >> 2;
-
-	SECTION_PROLOGUE(_APP_NOINIT_SECTION_NAME, (NOLOAD OPTIONAL),)
-	{
-		APP_INPUT_SECTION(.noinit)
-		APP_INPUT_SECTION(".noinit.*")
-		MMU_PAGE_ALIGN
-	} GROUP_DATA_LINK_IN(RAMABLE_REGION, RAMABLE_REGION)
-
-	__app_ram_end = .;
-	__app_ram_size = __app_ram_end - __app_ram_start;
-#endif /* CONFIG_APPLICATION_MEMORY */
-
-	SECTION_PROLOGUE(_BSS_SECTION_NAME, (NOLOAD OPTIONAL),)
+	SECTION_PROLOGUE(_BSS_SECTION_NAME, (NOLOAD),)
 	{
 	MMU_PAGE_ALIGN
-
+#if !defined(CONFIG_USERSPACE)
+	_image_ram_start = .;
+#endif
 	/*
 	 * For performance, BSS section is forced to be both 4 byte aligned and
 	 * a multiple of 4 bytes.
@@ -229,9 +235,9 @@ SECTIONS
 	__kernel_ram_start = .;
 	__bss_start = .;
 
-	KERNEL_INPUT_SECTION(.bss)
-	KERNEL_INPUT_SECTION(".bss.*")
-	KERNEL_INPUT_SECTION(COMMON)
+	*(.bss)
+	*(".bss.*")
+	*(COMMON)
 	*(".kernel_bss.*")
 
 	/*
@@ -244,14 +250,14 @@ SECTIONS
 
 	__bss_num_words	= (__bss_end - __bss_start) >> 2;
 
-	SECTION_PROLOGUE(_NOINIT_SECTION_NAME, (NOLOAD OPTIONAL),)
+	SECTION_PROLOGUE(_NOINIT_SECTION_NAME, (NOLOAD),)
 	{
 	/*
 	 * This section is used for non-initialized objects that
 	 * will not be cleared during the boot process.
 	 */
-	KERNEL_INPUT_SECTION(.noinit)
-	KERNEL_INPUT_SECTION(".noinit.*")
+	*(.noinit)
+	*(".noinit.*")
 	*(".kernel_noinit.*")
 
 #ifdef CONFIG_SOC_NOINIT_LD
@@ -262,24 +268,16 @@ SECTIONS
 
 	} GROUP_DATA_LINK_IN(RAMABLE_REGION, RAMABLE_REGION)
 
-	SECTION_DATA_PROLOGUE(_DATA_SECTION_NAME, (OPTIONAL),)
+	SECTION_DATA_PROLOGUE(_DATA_SECTION_NAME,,)
 	{
 
 	__data_ram_start = .;
 
-	KERNEL_INPUT_SECTION(.data)
-	KERNEL_INPUT_SECTION(".data.*")
+	*(.data)
+	*(".data.*")
 	*(".kernel.*")
 
 #ifdef CONFIG_DYNAMIC_INTERRUPTS
-	. = ALIGN(8);
-	_idt_base_address = .;
-#ifdef LINKER_PASS2
-	KEEP(*(staticIdt))
-#else
-	. += CONFIG_IDT_NUM_VECTORS * 8;
-#endif /* LINKER_PASS2 */
-
 #ifndef CONFIG_X86_FIXED_IRQ_MAPPING
 	. = ALIGN(4);
 	_irq_to_interrupt_vector = .;
@@ -292,12 +290,11 @@ SECTIONS
 
 	z_interrupt_vectors_allocated = .;
 #ifdef LINKER_PASS2
-	KEEP(*(irq_vectors_alloc_data))
+	KEEP(*(irq_vectors_alloc))
 #else
 	. += (CONFIG_IDT_NUM_VECTORS + 7) / 8;
 #endif /* LINKER_PASS2 */
 #endif /* CONFIG_DYNAMIC_INTERRUPTS */
-
 
 #ifdef CONFIG_SOC_RWDATA_LD
 #include <soc-rwdata.ld>
@@ -308,12 +305,33 @@ SECTIONS
 #include <custom-rwdata.ld>
 #endif
 
+#ifdef CONFIG_X86_KPTI
+	MMU_PAGE_ALIGN
+	z_shared_kernel_page_start = .;
+	/* Special page containing supervisor data that is still mapped in
+	 * user mode page tables. IDT, GDT, TSSes, trampoline stack, and
+	 * any LDT must go here as they always must live in a page that is
+	 * marked 'present'. Still not directly user accessible, but
+	 * no sensitive data should be here as Meltdown exploits may read it.
+	 */
+#endif /* CONFIG_X86_KPTI */
+
+#ifdef CONFIG_DYNAMIC_INTERRUPTS
+	. = ALIGN(8);
+	_idt_base_address = .;
+#ifdef LINKER_PASS2
+	KEEP(*(staticIdt))
+#else
+	. += CONFIG_IDT_NUM_VECTORS * 8;
+#endif /* LINKER_PASS2 */
+#endif /* CONFIG_DYNAMIC_INTERRUPTS */
+
 #ifdef CONFIG_GDT_DYNAMIC
 	KEEP(*(.tss))
 	. = ALIGN(8);
 	_gdt = .;
 #ifdef LINKER_PASS2
-	KEEP(*(gdt_ram_data))
+	KEEP(*(gdt))
 #else /* LINKER_PASS2 */
 
 #ifdef CONFIG_USERSPACE
@@ -326,6 +344,18 @@ SECTIONS
 	. += GDT_NUM_ENTRIES * 8;
 #endif /* LINKER_PASS2 */
 #endif /* CONFIG_GDT_DYNAMIC */
+
+#ifdef CONFIG_X86_KPTI
+	z_trampoline_stack_start = .;
+	MMU_PAGE_ALIGN
+	z_trampoline_stack_end = .;
+	z_shared_kernel_page_end = .;
+
+	ASSERT(z_trampoline_stack_end - z_trampoline_stack_start >= 40,
+		"trampoline stack too small");
+	ASSERT(z_shared_kernel_page_end - z_shared_kernel_page_start == 4096,
+	       "shared kernel area is not one memory page");
+#endif /* CONFIG_X86_KPTI */
 
 	. = ALIGN(4);
 	} GROUP_DATA_LINK_IN(RAMABLE_REGION, ROMABLE_REGION)
@@ -342,12 +372,17 @@ SECTIONS
 	 * However, __mmu_tables_start *must* remain stable between builds,
 	 * we can't have anything shifting the memory map beforehand.
 	 */
-	SECTION_DATA_PROLOGUE(mmu_tables, (OPTIONAL),)
+	SECTION_DATA_PROLOGUE(mmu_tables,,)
 	{
 	/* Page Tables are located here if MMU is enabled.*/
 	MMU_PAGE_ALIGN
 	__mmu_tables_start = .;
-	KEEP(*(.mmu_data));
+	z_x86_kernel_pdpt = .;
+	KEEP(*(mmu_tables));
+#ifdef CONFIG_X86_KPTI
+	z_x86_user_pdpt = .;
+	KEEP(*(user_mmu_tables));
+#endif /* CONFIG_X86_KPTI */
 	__mmu_tables_end = .;
 	} GROUP_DATA_LINK_IN(RAMABLE_REGION, ROMABLE_REGION)
 #endif
@@ -370,7 +405,7 @@ SECTIONS
 
 #ifndef LINKER_PASS2
 	/* static interrupts */
-	SECTION_PROLOGUE(intList, (OPTIONAL),)
+	SECTION_PROLOGUE(intList,,)
 	{
 	KEEP(*(.spurIsr))
 	KEEP(*(.spurNoErrIsr))
@@ -380,7 +415,7 @@ SECTIONS
 
 #ifdef CONFIG_X86_MMU
 	/* Memory management unit*/
-	SECTION_PROLOGUE(mmulist, (OPTIONAL),)
+	SECTION_PROLOGUE(mmulist,,)
 	{
 	/* get size of the mmu lists needed for gen_mmu_x86.py*/
 	LONG((__MMU_LIST_END__ - __MMU_LIST_START__) / __MMU_REGION_SIZEOF)
@@ -414,6 +449,8 @@ SECTIONS
 
 #include <linker/debug-sections.ld>
 
+	/DISCARD/ : { *(.note.GNU-stack) }
+
 	}
 
 #ifdef CONFIG_XIP
@@ -425,9 +462,4 @@ SECTIONS
  */
 __data_size = (__data_ram_end - __data_ram_start);
 __data_num_words = (__data_size + 3) >> 2;
-#ifdef CONFIG_APPLICATION_MEMORY
-__app_data_size = (__app_data_ram_end - __app_data_ram_start);
-__app_data_num_words = (__app_data_size + 3) >> 2;
-#endif
-
 #endif

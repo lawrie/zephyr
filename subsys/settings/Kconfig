@@ -15,6 +15,12 @@ menuconfig SETTINGS
 	  It supports several back-ends to store and load serialized data from
 	  and it can do so atomically for all involved modules.
 
+if SETTINGS
+module = SETTINGS
+module-str = settings
+source "subsys/logging/Kconfig.template.log_config"
+endif
+
 # Hidden option to enable encoding length into settings entry
 config SETTINGS_ENCODE_LEN
 	depends on SETTINGS
@@ -62,14 +68,6 @@ config SETTINGS_FCB_MAGIC
 	depends on SETTINGS && SETTINGS_FCB
 	help
 	  Magic 32-bit word for to identify valid settings area
-
-config SETTINGS_FCB_FLASH_AREA
-	int "Flash area id used for settings"
-	default 4
-	depends on SETTINGS && SETTINGS_FCB
-	help
-	  Id of the Flash area where FCB instance used for settings is
-	  expected to operate.
 
 config SETTINGS_FS_DIR
 	string "Serialization directory"

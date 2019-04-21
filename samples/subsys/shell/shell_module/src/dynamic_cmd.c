@@ -122,7 +122,7 @@ static int cmd_dynamic_show(const struct shell *shell,
 	ARG_UNUSED(argc);
 	ARG_UNUSED(argv);
 
-	if (dynamic_cmd_cnt == 0) {
+	if (dynamic_cmd_cnt == 0U) {
 		shell_warn(shell, "Please add some commands first.");
 		return -ENOEXEC;
 	}
@@ -155,9 +155,8 @@ static void dynamic_cmd_get(size_t idx, struct shell_static_entry *entry)
 	}
 }
 
-SHELL_CREATE_DYNAMIC_CMD(m_sub_dynamic_set, dynamic_cmd_get);
-SHELL_CREATE_STATIC_SUBCMD_SET(m_sub_dynamic)
-{
+SHELL_DYNAMIC_CMD_CREATE(m_sub_dynamic_set, dynamic_cmd_get);
+SHELL_STATIC_SUBCMD_SET_CREATE(m_sub_dynamic,
 	SHELL_CMD_ARG(add, NULL,
 		"Add a new dynamic command.\nExample usage: [ dynamic add test "
 		"] will add a dynamic command 'test'.\nIn this example, command"
@@ -172,7 +171,7 @@ SHELL_CREATE_STATIC_SUBCMD_SET(m_sub_dynamic)
 	SHELL_CMD_ARG(show, NULL,
 		"Show all added dynamic commands.", cmd_dynamic_show, 1, 0),
 	SHELL_SUBCMD_SET_END
-};
+);
 
 SHELL_CMD_REGISTER(dynamic, &m_sub_dynamic,
 		   "Demonstrate dynamic command usage.", NULL);

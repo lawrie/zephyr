@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
 	/* following sections are obtained via 'ld --verbose' */
 
 	/* Stabs debugging sections. */
@@ -7,6 +9,7 @@
 	SECTION_PROLOGUE(.stab.exclstr, 0,)    { *(.stab.exclstr) }
 	SECTION_PROLOGUE(.stab.index, 0,)      { *(.stab.index) }
 	SECTION_PROLOGUE(.stab.indexstr, 0,)   { *(.stab.indexstr) }
+	SECTION_PROLOGUE(.gnu.build.attributes, 0,) { *(.gnu.build.attributes .gnu.build.attributes.*) }
 	SECTION_PROLOGUE(.comment, 0,)         { *(.comment) }
 	/* DWARF debug sections.
 	   Symbols in the DWARF debugging sections are relative to the beginning

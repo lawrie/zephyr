@@ -40,7 +40,7 @@ void bt_settings_encode_key(char *path, size_t path_size, const char *subsys,
 			 addr->type);
 	}
 
-	BT_DBG("Encoded path %s", path);
+	BT_DBG("Encoded path %s", log_strdup(path));
 }
 
 int bt_settings_decode_key(char *key, bt_addr_le_t *addr)
@@ -81,7 +81,7 @@ int bt_settings_decode_key(char *key, bt_addr_le_t *addr)
 		}
 	}
 
-	BT_DBG("Decoded %s as %s", key, bt_addr_le_str(addr));
+	BT_DBG("Decoded %s as %s", log_strdup(key), bt_addr_le_str(addr));
 
 	return 0;
 }
@@ -89,20 +89,15 @@ int bt_settings_decode_key(char *key, bt_addr_le_t *addr)
 static int set(int argc, char **argv, void *value_ctx)
 {
 	int len;
+	const struct bt_settings_handler *h;
 
-	if (argc > 1) {
-		const struct bt_settings_handler *h;
+	for (h = _bt_settings_start; h < _bt_settings_end; h++) {
+		if (!strcmp(argv[0], h->name)) {
+			argc--;
+			argv++;
 
-		for (h = _bt_settings_start; h < _bt_settings_end; h++) {
-			if (!strcmp(argv[0], h->name)) {
-				argc--;
-				argv++;
-
-				return h->set(argc, argv, value_ctx);
-			}
+			return h->set(argc, argv, value_ctx);
 		}
-
-		return -ENOENT;
 	}
 
 	if (!strcmp(argv[0], "id")) {
@@ -112,9 +107,8 @@ static int set(int argc, char **argv, void *value_ctx)
 			return 0;
 		}
 
-		len = sizeof(bt_dev.id_addr);
-
-		len = settings_val_read_cb(value_ctx, &bt_dev.id_addr, len);
+		len = settings_val_read_cb(value_ctx, &bt_dev.id_addr,
+					   sizeof(bt_dev.id_addr));
 
 		if (len < sizeof(bt_dev.id_addr[0])) {
 			if (len < 0) {
@@ -133,7 +127,7 @@ static int set(int argc, char **argv, void *value_ctx)
 
 			bt_dev.id_count = len / sizeof(bt_dev.id_addr[0]);
 			for (i = 0; i < bt_dev.id_count; i++) {
-				BT_DBG("ID Addr %d %s", i,
+				BT_DBG("ID[%d] %s", i,
 				       bt_addr_le_str(&bt_dev.id_addr[i]));
 			}
 		}
@@ -170,36 +164,39 @@ static int set(int argc, char **argv, void *value_ctx)
 				(void)memset(bt_dev.irk, 0, sizeof(bt_dev.irk));
 			}
 		} else {
-			BT_DBG("IRK set to %s", bt_hex(bt_dev.irk[0], 16));
+			int i, count;
+
+			count = len / sizeof(bt_dev.irk[0]);
+			for (i = 0; i < count; i++) {
+				BT_DBG("IRK[%d] %s", i,
+				       bt_hex(bt_dev.irk[i], 16));
+			}
 		}
 
 		return 0;
 	}
 #endif /* CONFIG_BT_PRIVACY */
 
-	return 0;
+	return -ENOENT;
 }
-
-#if defined(CONFIG_BT_PRIVACY)
-#define ID_SIZE_MAX sizeof(bt_dev.irk)
-#else
-#define ID_SIZE_MAX sizeof(bt_dev.id_addr)
-#endif
 
 #define ID_DATA_LEN(array) (bt_dev.id_count * sizeof(array[0]))
 
 static void save_id(struct k_work *work)
 {
-	BT_DBG("Saving ID addr");
-	BT_HEXDUMP_DBG(&bt_dev.id_addr, ID_DATA_LEN(bt_dev.id_addr),
-		       "ID addr");
-	settings_save_one("bt/id", &bt_dev.id_addr,
-			  ID_DATA_LEN(bt_dev.id_addr));
+	int err;
+
+	err = settings_save_one("bt/id", &bt_dev.id_addr,
+				ID_DATA_LEN(bt_dev.id_addr));
+	if (err) {
+		BT_ERR("Failed to save ID (err %d)", err);
+	}
 
 #if defined(CONFIG_BT_PRIVACY)
-	BT_DBG("Saving IRK");
-	BT_HEXDUMP_DBG(bt_dev.irk, ID_DATA_LEN(bt_dev.irk), "IRK");
-	settings_save_one("bt/irk", bt_dev.irk, ID_DATA_LEN(bt_dev.irk));
+	err = settings_save_one("bt/irk", bt_dev.irk, ID_DATA_LEN(bt_dev.irk));
+	if (err) {
+		BT_ERR("Failed to save IRK (err %d)", err);
+	}
 #endif
 }
 
@@ -231,13 +228,15 @@ static int commit(void)
 		}
 	}
 
+	if (!atomic_test_bit(bt_dev.flags, BT_DEV_READY)) {
+		bt_finalize_init();
+	}
+
 	for (h = _bt_settings_start; h < _bt_settings_end; h++) {
 		if (h->commit) {
 			h->commit();
 		}
 	}
-
-	bt_dev_show_info();
 
 	return 0;
 }

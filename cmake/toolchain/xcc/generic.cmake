@@ -1,6 +1,16 @@
-set(TOOLCHAIN_HOME /opt/xtensa/XtDevTools/install/tools/$ENV{TOOLCHAIN_VER}/XtensaTools)
+# SPDX-License-Identifier: Apache-2.0
 
-set(COMPILER gcc)
+set_ifndef(XTENSA_TOOLCHAIN_PATH "$ENV{XTENSA_TOOLCHAIN_PATH}")
+set(       XTENSA_TOOLCHAIN_PATH ${XTENSA_TOOLCHAIN_PATH} CACHE PATH "xtensa tools install directory")
+assert(    XTENSA_TOOLCHAIN_PATH "XTENSA_TOOLCHAIN_PATH is not set")
+
+if(NOT EXISTS ${XTENSA_TOOLCHAIN_PATH})
+  message(FATAL_ERROR "Nothing found at XTENSA_TOOLCHAIN_PATH: '${XTENSA_TOOLCHAIN_PATH}'")
+endif()
+
+set(TOOLCHAIN_HOME ${XTENSA_TOOLCHAIN_PATH}/XtDevTools/install/tools/$ENV{TOOLCHAIN_VER}/XtensaTools)
+
+set(COMPILER xcc)
 
 set(CROSS_COMPILE_TARGET xt)
 set(SYSROOT_TARGET       xtensa-elf)
@@ -23,3 +33,5 @@ list(APPEND TOOLCHAIN_C_FLAGS -fms-extensions)
 list(APPEND TOOLCHAIN_C_FLAGS
   -D__SIZEOF_LONG__=4
   )
+
+set(TOOLCHAIN_HAS_NEWLIB OFF CACHE BOOL "True if toolchain supports newlib")

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
 #include <arm/armv6-m.dtsi>
 #include <dt-bindings/clock/kinetis_sim.h>
 #include <dt-bindings/gpio/gpio.h>
@@ -173,7 +175,6 @@
 		gpiob: gpio@400ff040 {
 			compatible = "nxp,kinetis-gpio";
 			reg = <0x400ff040 0x40>;
-			interrupts = <31 2>;
 			label = "GPIO_1";
 			gpio-controller;
 			#gpio-cells = <2>;
@@ -195,7 +196,6 @@
 			label = "SPI_0";
 			clocks = <&sim KINETIS_SIM_BUS_CLK 0x103C 12>;
 
-			cs = <&gpiob 18 0>, <&gpiob 17 0>;
 			pinctrl-0 = <&spi0_default>;
 			pinctrl-names = "default";
 			#address-cells = <1>;

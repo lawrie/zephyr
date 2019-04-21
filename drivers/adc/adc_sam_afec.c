@@ -75,17 +75,17 @@ static int adc_sam_channel_setup(struct device *dev,
 	u8_t channel_id = channel_cfg->channel_id;
 
 	/* Clear the gain bits for the channel. */
-	afec->AFEC_CGR &= ~(3 << channel_id * 2);
+	afec->AFEC_CGR &= ~(3 << channel_id * 2U);
 
 	switch (channel_cfg->gain) {
 	case ADC_GAIN_1:
 		/* A value of 0 in this register is a gain of 1. */
 		break;
 	case ADC_GAIN_1_2:
-		afec->AFEC_CGR |= (1 << (channel_id * 2));
+		afec->AFEC_CGR |= (1 << (channel_id * 2U));
 		break;
 	case ADC_GAIN_1_4:
-		afec->AFEC_CGR |= (2 << (channel_id * 2));
+		afec->AFEC_CGR |= (2 << (channel_id * 2U));
 		break;
 	default:
 		LOG_ERR("Selected ADC gain is not valid");
@@ -150,7 +150,7 @@ static void adc_context_start_sampling(struct adc_context *ctx)
 {
 	struct adc_sam_data *data = CONTAINER_OF(ctx, struct adc_sam_data, ctx);
 
-	data->channels = ctx->sequence->channels;
+	data->channels = ctx->sequence.channels;
 
 	adc_sam_start_conversion(data->dev);
 }
@@ -192,18 +192,18 @@ static int start_read(struct device *dev, const struct adc_sequence *sequence)
 	/* Signal an error if the channel selection is invalid (no channels or
 	 * a non-existing one is selected).
 	 */
-	if (channels == 0 ||
-	   (channels & (~0UL << NUM_CHANNELS))) {
+	if (channels == 0U ||
+	    (channels & (~0UL << NUM_CHANNELS))) {
 		LOG_ERR("Invalid selection of channels");
 		return -EINVAL;
 	}
 
-	if (sequence->oversampling != 0) {
+	if (sequence->oversampling != 0U) {
 		LOG_ERR("Oversampling is not supported");
 		return -EINVAL;
 	}
 
-	if (sequence->resolution != 12) {
+	if (sequence->resolution != 12U) {
 		/* TODO JKW: Support the Enhanced Resolution Mode 50.6.3 page
 		 * 1544.
 		 */
@@ -242,8 +242,6 @@ static int start_read(struct device *dev, const struct adc_sequence *sequence)
 	adc_context_start_read(&data->ctx, sequence);
 
 	error = adc_context_wait_for_completion(&data->ctx);
-	adc_context_release(&data->ctx, error);
-
 	return error;
 }
 
@@ -251,9 +249,13 @@ static int adc_sam_read(struct device *dev,
 			const struct adc_sequence *sequence)
 {
 	struct adc_sam_data *data = DEV_DATA(dev);
+	int error;
 
 	adc_context_lock(&data->ctx, false, NULL);
-	return start_read(dev, sequence);
+	error = start_read(dev, sequence);
+	adc_context_release(&data->ctx, error);
+
+	return error;
 }
 
 static int adc_sam_init(struct device *dev)
@@ -302,9 +304,13 @@ static int adc_sam_read_async(struct device *dev,
 			      struct k_poll_signal *async)
 {
 	struct adc_sam_data *data = DEV_DATA(dev);
+	int error;
 
 	adc_context_lock(&data->ctx, true, async);
-	return start_read(dev, sequence);
+	error = start_read(dev, sequence);
+	adc_context_release(&data->ctx, error);
+
+	return error;
 }
 #endif
 

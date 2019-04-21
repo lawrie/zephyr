@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 # Configuration for host installed llvm
 #
 
@@ -33,6 +35,7 @@ foreach(isystem_include_dir ${NOSTDINC})
   list(APPEND isystem_include_flags -isystem ${isystem_include_dir})
 endforeach()
 
+# This libgcc code is partially duplicated in compiler/*/target.cmake
 execute_process(
   COMMAND ${CMAKE_C_COMPILER} ${TOOLCHAIN_C_FLAGS} --print-libgcc-file-name
   OUTPUT_VARIABLE LIBGCC_FILE_NAME
@@ -50,3 +53,12 @@ list(APPEND TOOLCHAIN_LIBS gcc)
 
 set(CMAKE_REQUIRED_FLAGS -nostartfiles -nostdlib ${isystem_include_flags} -Wl,--unresolved-symbols=ignore-in-object-files)
 string(REPLACE ";" " " CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS}")
+
+# Load toolchain_cc-family macros
+# Clang and GCC are almost feature+flag compatible, so reuse freestanding gcc
+include(${ZEPHYR_BASE}/cmake/compiler/gcc/target_security_fortify.cmake)
+include(${ZEPHYR_BASE}/cmake/compiler/gcc/target_security_canaries.cmake)
+include(${ZEPHYR_BASE}/cmake/compiler/gcc/target_optimizations.cmake)
+include(${ZEPHYR_BASE}/cmake/compiler/gcc/target_cpp.cmake)
+include(${ZEPHYR_BASE}/cmake/compiler/gcc/target_asm.cmake)
+include(${ZEPHYR_BASE}/cmake/compiler/gcc/target_baremetal.cmake)

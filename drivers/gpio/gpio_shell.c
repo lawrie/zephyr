@@ -64,17 +64,16 @@ static int cmd_gpio_conf(const struct shell *shell, size_t argc, char **argv)
 			return 0;
 		}
 	} else {
-		shell_fprintf(shell, SHELL_ERROR,
-			      "Wrong parameters for conf\n");
-		return 0;
+		shell_error(shell, "Wrong parameters for conf");
+		return -ENOTSUP;
 	}
 
 	dev = device_get_binding(argv[args_indx.port]);
 
 	if (dev != NULL) {
 		index = (uint8_t)atoi(argv[args_indx.index]);
-		shell_fprintf(shell, SHELL_NORMAL, "Configuring %s pin %d\n",
-			     argv[args_indx.port], index);
+		shell_print(shell, "Configuring %s pin %d",
+			    argv[args_indx.port], index);
 		gpio_pin_configure(dev, index, type);
 	}
 
@@ -92,24 +91,22 @@ static int cmd_gpio_get(const struct shell *shell,
 	if (argc == args_no.get && isdigit((unsigned char)argv[args_indx.index][0])) {
 		index = (uint8_t)atoi(argv[args_indx.index]);
 	} else {
-		shell_fprintf(shell, SHELL_ERROR,
-			      "Wrong parameters for get\n");
-		return 0;
+		shell_error(shell, "Wrong parameters for get");
+		return -EINVAL;
 	}
 
 	dev = device_get_binding(argv[args_indx.port]);
 
 	if (dev != NULL) {
 		index = (u8_t)atoi(argv[2]);
-		shell_fprintf(shell, SHELL_NORMAL,
-			     "Reading %s pin %d\n",
+		shell_print(shell, "Reading %s pin %d",
 			     argv[args_indx.port], index);
 		rc = gpio_pin_read(dev, index, &value);
 		if (rc == 0) {
-			shell_fprintf(shell, SHELL_NORMAL, "Value %d\n", value);
+			shell_print(shell, "Value %d", value);
 		} else {
-			shell_fprintf(shell, SHELL_ERROR,
-				      "Error reading value\n");
+			shell_error(shell, "Error reading value");
+			return -EIO;
 		}
 	}
 
@@ -129,17 +126,15 @@ static int cmd_gpio_set(const struct shell *shell,
 		index = (uint8_t)atoi(argv[args_indx.index]);
 		value = (uint8_t)atoi(argv[args_indx.value]);
 	} else {
-		shell_fprintf(shell, SHELL_ERROR,
-			      "Wrong parameters for set\n");
-		return 0;
+		shell_print(shell, "Wrong parameters for set");
+		return -EINVAL;
 	}
 	dev = device_get_binding(argv[args_indx.port]);
 
 	if (dev != NULL) {
 		index = (u8_t)atoi(argv[2]);
-		shell_fprintf(shell, SHELL_NORMAL,
-			     "Writing to %s pin %d\n",
-			     argv[args_indx.port], index);
+		shell_print(shell, "Writing to %s pin %d",
+			    argv[args_indx.port], index);
 		gpio_pin_write(dev, index, value);
 	}
 
@@ -147,12 +142,11 @@ static int cmd_gpio_set(const struct shell *shell,
 }
 
 
-SHELL_CREATE_STATIC_SUBCMD_SET(sub_gpio) {
-	/* Alphabetically sorted. */
+SHELL_STATIC_SUBCMD_SET_CREATE(sub_gpio,
 	SHELL_CMD(conf, NULL, "Configure GPIO", cmd_gpio_conf),
 	SHELL_CMD(get, NULL, "Get GPIO value", cmd_gpio_get),
 	SHELL_CMD(set, NULL, "Set GPIO", cmd_gpio_set),
 	SHELL_SUBCMD_SET_END /* Array terminated. */
-};
+);
 
 SHELL_CMD_REGISTER(gpio, &sub_gpio, "GPIO commands", NULL);

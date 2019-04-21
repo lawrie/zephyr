@@ -73,7 +73,7 @@ static int l2cap_recv_metrics(struct bt_l2cap_chan *chan, struct net_buf *buf)
 		cycle_stamp = k_cycle_get_32();
 	} else {
 		len += buf->len;
-		l2cap_rate = ((u64_t)len << 3) * 1000000000 / delta;
+		l2cap_rate = ((u64_t)len << 3) * 1000000000U / delta;
 	}
 
 	return 0;
@@ -98,7 +98,7 @@ static int l2cap_recv(struct bt_l2cap_chan *chan, struct net_buf *buf)
 		    buf->len);
 
 	if (buf->len) {
-		hexdump(ctx_shell, buf->data, buf->len);
+		shell_hexdump(ctx_shell, buf->data, buf->len);
 	}
 
 	if (l2cap_recv_delay) {
@@ -245,7 +245,7 @@ static int cmd_register(const struct shell *shell, size_t argc, char *argv[])
 
 	if (bt_l2cap_server_register(&server) < 0) {
 		shell_error(shell, "Unable to register psm");
-		server.psm = 0;
+		server.psm = 0U;
 		return -ENOEXEC;
 	} else {
 		bt_conn_cb_register(&l2cap_conn_callbacks);
@@ -307,7 +307,7 @@ static int cmd_send(const struct shell *shell, size_t argc, char *argv[])
 		count = strtoul(argv[1], NULL, 10);
 	}
 
-	len = min(l2ch_chan.ch.tx.mtu, DATA_MTU - BT_L2CAP_CHAN_SEND_RESERVE);
+	len = MIN(l2ch_chan.ch.tx.mtu, DATA_MTU - BT_L2CAP_CHAN_SEND_RESERVE);
 
 	while (count--) {
 		buf = net_buf_alloc(&data_tx_pool, K_FOREVER);
@@ -395,13 +395,13 @@ static int cmd_whitelist_remove(const struct shell *shell, size_t argc, char *ar
 
 #define HELP_NONE "[none]"
 
-SHELL_CREATE_STATIC_SUBCMD_SET(whitelist_cmds) {
+SHELL_STATIC_SUBCMD_SET_CREATE(whitelist_cmds,
 	SHELL_CMD_ARG(add, NULL, HELP_NONE, cmd_whitelist_add, 1, 0),
 	SHELL_CMD_ARG(remove, NULL, HELP_NONE, cmd_whitelist_remove, 1, 0),
 	SHELL_SUBCMD_SET_END
-};
+);
 
-SHELL_CREATE_STATIC_SUBCMD_SET(l2cap_cmds) {
+SHELL_STATIC_SUBCMD_SET_CREATE(l2cap_cmds,
 	SHELL_CMD_ARG(connect, NULL, "<psm>", cmd_connect, 1, 0),
 	SHELL_CMD_ARG(disconnect, NULL, HELP_NONE, cmd_disconnect, 1, 0),
 	SHELL_CMD_ARG(metrics, NULL, "<value on, off>", cmd_metrics, 2, 0),
@@ -411,7 +411,7 @@ SHELL_CREATE_STATIC_SUBCMD_SET(l2cap_cmds) {
 	SHELL_CMD_ARG(send, NULL, "<number of packets>", cmd_send, 2, 0),
 	SHELL_CMD_ARG(whitelist, &whitelist_cmds, HELP_NONE, NULL, 1, 0),
 	SHELL_SUBCMD_SET_END
-};
+);
 
 static int cmd_l2cap(const struct shell *shell, size_t argc, char **argv)
 {

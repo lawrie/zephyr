@@ -10,7 +10,7 @@
  *
  *
  * Initialization of full C support: zero the .bss, copy the .data if XIP,
- * call _Cstart().
+ * call z_cstart().
  *
  * Stack is available in this module, but not the global data/bss until their
  * initialization is performed.
@@ -22,7 +22,58 @@
 #include <linker/linker-defs.h>
 #include <kernel_internal.h>
 #include <arch/arm/cortex_m/cmsis.h>
+#include <cortex_m/stack.h>
+
+#if defined(__GNUC__)
+/*
+ * GCC can detect if memcpy is passed a NULL argument, however one of
+ * the cases of relocate_vector_table() it is valid to pass NULL, so we
+ * supress the warning for this case.  We need to do this before
+ * string.h is included to get the declaration of memcpy.
+ */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnonnull"
+#endif
+
 #include <string.h>
+
+static inline void switch_sp_to_psp(void)
+{
+	__set_CONTROL(__get_CONTROL() | CONTROL_SPSEL_Msk);
+	/*
+	 * When changing the stack pointer, software must use an ISB instruction
+	 * immediately after the MSR instruction. This ensures that instructions
+	 * after the ISB instruction execute using the new stack pointer.
+	 */
+	__ISB();
+}
+
+static inline void set_and_switch_to_psp(void)
+{
+	u32_t process_sp;
+
+	process_sp = (u32_t)&_interrupt_stack + CONFIG_ISR_STACK_SIZE;
+	__set_PSP(process_sp);
+	switch_sp_to_psp();
+}
+
+void lock_interrupts(void)
+{
+#if defined(CONFIG_ARMV6_M_ARMV8_M_BASELINE)
+	__disable_irq();
+#elif defined(CONFIG_ARMV7_M_ARMV8_M_MAINLINE)
+	__set_BASEPRI(_EXC_IRQ_DEFAULT_PRIO);
+#else
+#error Unknown ARM architecture
+#endif /* CONFIG_ARMV6_M_ARMV8_M_BASELINE */
+}
+
+#ifdef CONFIG_INIT_STACKS
+static inline void init_stacks(void)
+{
+	memset(&_interrupt_stack, 0xAA, CONFIG_ISR_STACK_SIZE);
+}
+#endif
 
 #ifdef CONFIG_CPU_CORTEX_M_HAS_VTOR
 
@@ -41,10 +92,11 @@ static inline void relocate_vector_table(void)
 #else
 
 #if defined(CONFIG_SW_VECTOR_RELAY)
-_GENERIC_SECTION(.vt_pointer_section) void *_vector_table_pointer;
+Z_GENERIC_SECTION(.vt_pointer_section) void *_vector_table_pointer;
 #endif
 
 #define VECTOR_ADDRESS 0
+
 void __weak relocate_vector_table(void)
 {
 #if defined(CONFIG_XIP) && (CONFIG_FLASH_BASE_ADDRESS != 0) || \
@@ -56,6 +108,10 @@ void __weak relocate_vector_table(void)
 #endif
 }
 
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+
 #endif /* CONFIG_CPU_CORTEX_M_HAS_VTOR */
 
 #ifdef CONFIG_FLOAT
@@ -63,7 +119,7 @@ static inline void enable_floating_point(void)
 {
 	/*
 	 * Upon reset, the Co-Processor Access Control Register is 0x00000000.
-	 * Enable CP10 and CP11 coprocessors to enable floating point.
+	 * Enable CP10 and CP11 co-processors to enable floating point.
 	 */
 	SCB->CPACR |= CPACR_CP10_FULL_ACCESS | CPACR_CP11_FULL_ACCESS;
 	/*
@@ -80,7 +136,7 @@ static inline void enable_floating_point(void)
 	 * have first been touched. Perform a dummy move operation so that
 	 * the stack frames are created as expected before any thread
 	 * context switching can occur. It has to be surrounded by instruction
-	 * synchronisation barriers to ensure that the whole sequence is
+	 * synchronization barriers to ensure that the whole sequence is
 	 * serialized.
 	 */
 	__asm__ volatile(
@@ -95,7 +151,7 @@ static inline void enable_floating_point(void)
 }
 #endif
 
-extern FUNC_NORETURN void _Cstart(void);
+extern FUNC_NORETURN void z_cstart(void);
 /**
  *
  * @brief Prepare to and run C code
@@ -105,21 +161,29 @@ extern FUNC_NORETURN void _Cstart(void);
  * @return N/A
  */
 
-extern void _IntLibInit(void);
+extern void z_IntLibInit(void);
 
 #ifdef CONFIG_BOOT_TIME_MEASUREMENT
 	extern u64_t __start_time_stamp;
 #endif
 void _PrepC(void)
 {
+#ifdef CONFIG_INIT_STACKS
+	init_stacks();
+#endif
+	/*
+	 * Set PSP and use it to boot without using MSP, so that it
+	 * gets set to _interrupt_stack during initialization.
+	 */
+	set_and_switch_to_psp();
 	relocate_vector_table();
 	enable_floating_point();
-	_bss_zero();
-	_data_copy();
+	z_bss_zero();
+	z_data_copy();
 #ifdef CONFIG_BOOT_TIME_MEASUREMENT
 	__start_time_stamp = 0U;
 #endif
-	_IntLibInit();
-	_Cstart();
+	z_IntLibInit();
+	z_cstart();
 	CODE_UNREACHABLE;
 }

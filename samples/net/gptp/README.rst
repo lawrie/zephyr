@@ -12,12 +12,13 @@ queues) and setup VLANs (if enabled). The net-shell is also enabled so that
 user can monitor gPTP functionality.
 
 The source code for this sample application can be found at:
-:file:`samples/net/gptp`.
+:zephyr_file:`samples/net/gptp`.
 
 Requirements
 ************
 
-- :ref:`networking_with_native_posix`
+For generic host connectivity, that can be used for debugging purposes, see
+:ref:`networking_with_native_posix` for details.
 
 Building and Running
 ********************
@@ -33,7 +34,7 @@ Follow these steps to build the gPTP sample application:
 .. zephyr-app-commands::
    :zephyr-app: samples/net/gptp
    :board: <board to use>
-   :conf: prj.conf
+   :conf: prj_base.conf
    :goals: build
    :compact:
 
@@ -47,7 +48,7 @@ Setting up Linux Host
 =====================
 
 If you need VLAN support in your network, then the
-:file:`samples/net/vlan/vlan-setup-linux.sh` provides a script that can be
+:zephyr_file:`samples/net/vlan/vlan-setup-linux.sh` provides a script that can be
 executed on the Linux host. It creates two VLANs on the Linux host and creates
 routes to Zephyr. If you are using native_posix board, then
 the ``net-setup.sh`` will create VLAN setup automatically with this command:

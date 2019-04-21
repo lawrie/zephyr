@@ -312,7 +312,7 @@ static void connect_optional_fixed_channels(struct bt_l2cap_br *l2cap)
 static int l2cap_br_info_rsp(struct bt_l2cap_br *l2cap, u8_t ident,
 			     struct net_buf *buf)
 {
-	struct bt_l2cap_info_rsp *rsp = (void *)buf->data;
+	struct bt_l2cap_info_rsp *rsp;
 	u16_t type, result;
 	int err = 0;
 
@@ -341,6 +341,7 @@ static int l2cap_br_info_rsp(struct bt_l2cap_br *l2cap, u8_t ident,
 		goto done;
 	}
 
+	rsp = net_buf_pull_mem(buf, sizeof(*rsp));
 	result = sys_le16_to_cpu(rsp->result);
 	if (result != BT_L2CAP_INFO_SUCCESS) {
 		BT_WARN("Result unsuccessful");
@@ -349,7 +350,6 @@ static int l2cap_br_info_rsp(struct bt_l2cap_br *l2cap, u8_t ident,
 	}
 
 	type = sys_le16_to_cpu(rsp->type);
-	net_buf_pull(buf, sizeof(*rsp));
 
 	switch (type) {
 	case BT_L2CAP_INFO_FEAT_MASK:
@@ -664,7 +664,7 @@ static int l2cap_br_conn_req_reply(struct bt_l2cap_chan *chan, u16_t result)
 
 	l2cap_br_send_conn_rsp(chan->conn, BR_CHAN(chan)->tx.cid,
 			       BR_CHAN(chan)->rx.cid, chan->ident, result);
-	chan->ident = 0;
+	chan->ident = 0U;
 
 	return 0;
 }
@@ -740,7 +740,7 @@ static void l2cap_br_conn_req(struct bt_l2cap_br *l2cap, u8_t ident,
 	atomic_set_bit(BR_CHAN(chan)->flags, L2CAP_FLAG_CONN_ACCEPTOR);
 
 	/* Disable fragmentation of l2cap rx pdu */
-	BR_CHAN(chan)->rx.mtu = min(BR_CHAN(chan)->rx.mtu, L2CAP_BR_MAX_MTU);
+	BR_CHAN(chan)->rx.mtu = MIN(BR_CHAN(chan)->rx.mtu, L2CAP_BR_MAX_MTU);
 
 	switch (l2cap_br_conn_security(chan, psm)) {
 	case L2CAP_CONN_SECURITY_PENDING:
@@ -926,7 +926,7 @@ static void l2cap_br_conf_req(struct bt_l2cap_br *l2cap, u8_t ident,
 {
 	struct bt_conn *conn = l2cap->chan.chan.conn;
 	struct bt_l2cap_chan *chan;
-	struct bt_l2cap_conf_req *req = (void *)buf->data;
+	struct bt_l2cap_conf_req *req;
 	struct bt_l2cap_sig_hdr *hdr;
 	struct bt_l2cap_conf_rsp *rsp;
 	struct bt_l2cap_conf_opt *opt;
@@ -937,6 +937,7 @@ static void l2cap_br_conf_req(struct bt_l2cap_br *l2cap, u8_t ident,
 		return;
 	}
 
+	req = net_buf_pull_mem(buf, sizeof(*req));
 	flags = sys_le16_to_cpu(req->flags);
 	dcid = sys_le16_to_cpu(req->dcid);
 	opt_len = len - sizeof(*req);
@@ -961,15 +962,8 @@ static void l2cap_br_conf_req(struct bt_l2cap_br *l2cap, u8_t ident,
 		goto send_rsp;
 	}
 
-	/*
-	 * initialize config option data dedicated object with proper
-	 * offset set to beginnig of config options data
-	 */
-	opt = net_buf_pull(buf, sizeof(*req));
-
 	while (buf->len >= sizeof(*opt)) {
-		/* pull buf to always point to option data item */
-		net_buf_pull(buf, sizeof(*opt));
+		opt = net_buf_pull_mem(buf, sizeof(*opt));
 
 		/* make sure opt object can get safe dereference in iteration */
 		if (buf->len < opt->len) {
@@ -997,8 +991,8 @@ static void l2cap_br_conf_req(struct bt_l2cap_br *l2cap, u8_t ident,
 				goto send_rsp;
 			}
 
-			/* set opt object to next option chunk */
-			opt = net_buf_pull(buf, opt->len);
+			/* Update buffer to point at next option */
+			net_buf_pull(buf, opt->len);
 			break;
 		}
 	}
@@ -1316,7 +1310,7 @@ static void l2cap_br_conn_rsp(struct bt_l2cap_br *l2cap, u8_t ident,
 
 	switch (result) {
 	case BT_L2CAP_BR_SUCCESS:
-		chan->ident = 0;
+		chan->ident = 0U;
 		BR_CHAN(chan)->tx.cid = dcid;
 		l2cap_br_conf(chan);
 		bt_l2cap_chan_set_state(chan, BT_L2CAP_CONFIG);
@@ -1347,7 +1341,7 @@ int bt_l2cap_br_chan_send(struct bt_l2cap_chan *chan, struct net_buf *buf)
 static int l2cap_br_recv(struct bt_l2cap_chan *chan, struct net_buf *buf)
 {
 	struct bt_l2cap_br *l2cap = CONTAINER_OF(chan, struct bt_l2cap_br, chan);
-	struct bt_l2cap_sig_hdr *hdr = (void *)buf->data;
+	struct bt_l2cap_sig_hdr *hdr;
 	u16_t len;
 
 	if (buf->len < sizeof(*hdr)) {
@@ -1355,8 +1349,8 @@ static int l2cap_br_recv(struct bt_l2cap_chan *chan, struct net_buf *buf)
 		return 0;
 	}
 
+	hdr = net_buf_pull_mem(buf, sizeof(*hdr));
 	len = sys_le16_to_cpu(hdr->len);
-	net_buf_pull(buf, sizeof(*hdr));
 
 	BT_DBG("Signaling code 0x%02x ident %u len %u", hdr->code,
 	       hdr->ident, len);
@@ -1492,7 +1486,7 @@ static void check_fixed_channel(struct bt_l2cap_chan *chan)
 
 void bt_l2cap_br_recv(struct bt_conn *conn, struct net_buf *buf)
 {
-	struct bt_l2cap_hdr *hdr = (void *)buf->data;
+	struct bt_l2cap_hdr *hdr;
 	struct bt_l2cap_chan *chan;
 	u16_t cid;
 
@@ -1502,8 +1496,8 @@ void bt_l2cap_br_recv(struct bt_conn *conn, struct net_buf *buf)
 		return;
 	}
 
+	hdr = net_buf_pull_mem(buf, sizeof(*hdr));
 	cid = sys_le16_to_cpu(hdr->cid);
-	net_buf_pull(buf, sizeof(*hdr));
 
 	chan = bt_l2cap_br_lookup_rx_cid(conn, cid);
 	if (!chan) {

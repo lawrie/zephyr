@@ -6,41 +6,61 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-if USB_DEVICE_STACK
-
 config USB_CDC_ACM
 	bool "USB CDC ACM Device Class Driver"
 	select SERIAL_HAS_DRIVER
 	select SERIAL_SUPPORT_INTERRUPT
+	select RING_BUFFER
 	help
 	  USB CDC ACM device class driver
 
-config CDC_ACM_PORT_NAME
+if USB_CDC_ACM
+
+config USB_CDC_ACM_RINGBUF_SIZE
+	int "USB CDC ACM ring buffer size"
+	default 1024
+	help
+	  USB CDC ACM ring buffer size
+
+config CDC_ACM_PORT_NAME_0
 	string "CDC ACM class device driver port name"
-	depends on USB_CDC_ACM
-	default "CDC_ACM"
+	default "CDC_ACM_0"
 	help
 	  Port name through which CDC ACM class device driver is accessed
 
+if USB_COMPOSITE_DEVICE
+
+config CDC_ACM_PORT_1
+	bool "Enable virtual port 1"
+	help
+	  Enable CDC ACM Virtual port 1
+
+config CDC_ACM_PORT_NAME_1
+	string "CDC ACM class device driver port name"
+	depends on CDC_ACM_PORT_1
+	default "CDC_ACM_1"
+	help
+	  Port name through which CDC ACM class device driver is accessed
+
+endif # USB_COMPOSITE_DEVICE
+
 config CDC_ACM_INTERRUPT_EP_MPS
 	int
-	depends on USB_CDC_ACM
 	default 16
 	help
 	  CDC ACM class interrupt IN endpoint size
 
 config CDC_ACM_BULK_EP_MPS
 	int
-	depends on USB_CDC_ACM
 	default 64
 	help
 	  CDC ACM class bulk endpoints size
 
-if USB_CDC_ACM
 module = USB_CDC_ACM
 module-str = usb cdc acm
 source "subsys/logging/Kconfig.template.log_config"
-endif
+
+endif # USB_CDC_ACM
 
 config USB_MASS_STORAGE
 	bool "USB Mass Storage Device Class Driver"
@@ -111,9 +131,17 @@ source "subsys/usb/class/hid/Kconfig"
 config USB_DFU_CLASS
 	bool "USB DFU Class Driver"
 	select MPU_ALLOW_FLASH_WRITE
+	select POLL
 	depends on IMG_MANAGER
 	help
 	  USB DFU class driver
+
+config USB_DFU_WAIT_DELAY_MS
+	int
+	depends on USB_DFU_CLASS
+	default 12000
+	help
+	  A thread can wait for a prescribed time (in ms) for DFU to begin
 
 config USB_DFU_MAX_XFER_SIZE
 	int
@@ -125,4 +153,20 @@ config USB_DFU_DETACH_TIMEOUT
 	depends on USB_DFU_CLASS
 	default 1000
 
-endif # CONFIG_USB_DEVICE_STACK
+config USB_DFU_DEFAULT_POLLTIMEOUT
+	prompt "Default value for bwPollTimeout"
+	int
+	depends on USB_DFU_CLASS
+	default 256
+	range 0 1000
+	help
+	  Default value for bwPollTimeout (in ms)
+
+config USB_DFU_DNLOAD_POLLTIMEOUT
+	prompt "Value of bwPollTimeout during DNLOAD stage"
+	int
+	depends on USB_DFU_CLASS
+	default 10000
+	range 0 65535
+	help
+	  Value of bwPollTimeout (in ms) during DNLOAD stage

@@ -27,9 +27,6 @@ config LOAPIC_TIMER_IRQ
 config QMSI
 	default y
 
-config QMSI_BUILTIN
-	default y
-
 if PWM
 config PWM_QMSI
 	default y
@@ -148,7 +145,7 @@ config WDT_QMSI
 	default y
 endif # WATCHDOG
 
-if RTC
+if COUNTER
 config RTC_QMSI
 	default y
 endif # RTC

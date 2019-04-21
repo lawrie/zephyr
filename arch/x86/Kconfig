@@ -11,10 +11,6 @@ menu "X86 Architecture Options"
 config ARCH
 	default "x86"
 
-config ARCH_DEFCONFIG
-	string
-	default "arch/x86/defconfig"
-
 source "arch/x86/core/Kconfig"
 
 #
@@ -61,46 +57,61 @@ config X86_IAMCU
 	  assembly code will need to be updated to conform to the new calling
 	  convention.  If in doubt say N
 
-menu "Memory Management"
 config X86_MMU
 	bool "Enable Memory Management Unit"
 	select MEMORY_PROTECTION
 	help
-	  This options enables the memory management unit present in x86. Enabling
-	  this will create boot time page table structure.
-
-config X86_PAE_MODE
-	bool "Enable PAE page tables"
-	depends on X86_MMU
-	help
-	  When selected the Page address extension mode is enabled. The PAE
-	  page tables provides a mechanism to selectively disable execution.
-	  So any Page Table Entry (PTE) that sets the XD bit will have all
-	  instruction fetches disabled in that 4KB region. The amount of RAM
-	  needed for PAE tables is more than twice that of 32-Bit paging
-	  because each PAE entry is 64bits wide.
-	  Note: Do not enable in RAM constrained devices.
+	  This options enables the memory management unit present in x86
+	  and creates a set of page tables at build time. Requires an MMU
+	  which supports PAE page tables.
 
 config X86_NO_MELTDOWN
 	bool
 	help
 	  This hidden option should be set on a per-SOC basis to indicate that
-	  a particular SOC is not vulnerable to the Meltdown CPU vulnerability.
+	  a particular SOC is not vulnerable to the Meltdown CPU vulnerability,
+	  as described in CVE-2017-5754.
+
+config X86_NO_SPECTRE_V1
+	bool
+	help
+	  This hidden option should be set on a per-SOC basis to indicate that
+	  a particular SOC is not vulnerable to the Spectre V1, V1.1, and V1.2
+	  CPU vulnerabilities as described in CVE-2017-5753 and CVE-2018-3693.
 
 config X86_NO_SPECTRE_V2
 	bool
-	default y
 	help
 	  This hidden option should be set on a per-SOC basis to indicate that
-	  a particular SOC is not vulnerable to the Spectre V2 CPU vulnerability.
+	  a particular SOC is not vulnerable to the Spectre V2 CPU
+	  vulnerability, as described in CVE-2017-5715.
 
 config X86_NO_SPECTRE_V4
 	bool
-	default y
 	help
 	  This hidden option should be set on a per-SOC basis to indicate that
-	  a particular SOC is not vulnerable to the Spectre V4 CPU vulnerability.
-endmenu
+	  a particular SOC is not vulnerable to the Spectre V4 CPU
+	  vulnerability, as described in CVE-2018-3639.
+
+config X86_NO_LAZY_FP
+	bool
+	help
+	  This hidden option should be set on a per-SOC basis to indicate
+	  that a particular SOC is not vulnerable to the Lazy FP CPU
+	  vulnerability, as described in CVE-2018-3665.
+
+config X86_NO_SPECULATIVE_VULNERABILITIES
+	bool
+	select X86_NO_MELTDOWN
+	select X86_NO_SPECTRE_V1
+	select X86_NO_SPECTRE_V2
+	select X86_NO_SPECTRE_V4
+	select X86_NO_LAZY_FP
+	help
+	  This hidden option should be set on a per-SOC basis to indicate that
+	  a particular SOC does not perform any kind of speculative execution,
+	  or is a newer chip which is immune to the class of vulnerabilities
+	  which exploit speculative execution side channel attacks.
 
 config X86_ENABLE_TSS
 	bool
@@ -134,6 +145,17 @@ config X86_USERSPACE
 	  supporting user-level threads that are protected from each other and
 	  from crashing the kernel.
 
+config X86_KPTI
+	bool "Enable kernel page table isolation"
+	default y
+	depends on USERSPACE
+	depends on !X86_NO_MELTDOWN
+	help
+	  Implements kernel page table isolation to mitigate Meltdown exploits
+	  to read Kernel RAM. Incurs a significant performance cost for
+	  user thread interrupts and system calls, and significant footprint
+	  increase for additional page tables and trampoline stacks.
+
 menu "Architecture Floating Point Options"
 depends on CPU_HAS_FPU
 
@@ -156,6 +178,37 @@ config SSE_FP_MATH
 
 	  Disabling this option means that the compiler utilizes only the
 	  x87 instruction set for floating point operations.
+
+config EAGER_FP_SHARING
+	bool
+	depends on FLOAT
+	depends on USERSPACE
+	default y if !X86_NO_LAZY_FP
+	help
+	  This hidden option unconditionally saves/restores the FPU/SIMD
+	  register state on every context switch.
+
+	  Mitigates CVE-2018-3665, but incurs a performance hit.
+
+	  For vulnerable systems that process sensitive information in the
+	  FPU register set, should be used any time CONFIG_FLOAT is
+	  enabled, regardless if the FPU is used by one thread or multiple.
+
+config LAZY_FP_SHARING
+	bool
+	depends on FLOAT
+	depends on !EAGER_FP_SHARING
+	depends on FP_SHARING
+	default y if X86_NO_LAZY_FP || !USERSPACE
+	help
+	  This hidden option allows multiple threads to use the floating point
+	  registers, using logic to lazily save/restore the floating point
+	  register state on context switch.
+
+	  On Intel Core procesors, may be vulnerable to exploits which allows
+	  malware to read the contents of all floating point registers, see
+	  CVE-2018-3665.
+
 endmenu
 
 choice

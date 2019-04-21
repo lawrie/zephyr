@@ -22,13 +22,6 @@ struct mgmt_cbuf;
 int settings_cbor_line(struct mgmt_cbuf *cb, char *name, int nlen, char *value,
 		       int vlen);
 
-int settings_line_parse(char *buf, char **namep, char **valp);
-int settings_line_make(char *dst, int dlen, const char *name, const char *val);
-int settings_line_make2(char *dst, int dlen, const char *name,
-			const char *value);
-
-
-
 void settings_line_io_init(int (*read_cb)(void *ctx, off_t off, char *buf,
 					  size_t *len),
 			   int (*write_cb)(void *ctx, off_t off,
@@ -39,6 +32,7 @@ void settings_line_io_init(int (*read_cb)(void *ctx, off_t off, char *buf,
 int settings_line_write(const char *name, const char *value, size_t val_len,
 			off_t w_loc, void *cb_arg);
 
+/* Get len of record without alignment to write-block-size */
 int settings_line_len_calc(const char *name, size_t val_len);
 
 #ifdef CONFIG_SETTINGS_ENCODE_LEN

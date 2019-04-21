@@ -48,15 +48,20 @@ config BT_RX_BUF_LEN
 	  (4 bytes) and the ACL header (also 4 bytes) which yields 73 bytes.
 
 config BT_HCI_TX_STACK_SIZE
+	# NOTE: This value is derived from other symbols and should not be
+	# user-configurable. Do not give it a prompt.
 	int
-	default 256 if BT_H4
-	default 256 if BT_H5
+	default 512 if BT_H4
+	default 512 if BT_H5
 	default 416 if BT_SPI
-	default 640 if BT_CTLR
-	default 256 if BT_USERCHAN
+	default 940 if BT_CTLR && (BT_LL_SW || BT_LL_SW_SPLIT) && NO_OPTIMIZATIONS
+	default 1024 if BT_CTLR && (BT_LL_SW || BT_LL_SW_SPLIT) && BT_CENTRAL
+	default 640 if BT_CTLR && (BT_LL_SW || BT_LL_SW_SPLIT)
+	default 512 if BT_USERCHAN
 	# Even if no driver is selected the following default is still
-	# needed e.g. for unit tests.
-	default 256
+	# needed e.g. for unit tests. This default will also server as
+	# the worst-case stack size if an out-of-tree controller is used.
+	default 1024
 	help
 	  Stack size needed for executing bt_send with specified driver
 
@@ -64,15 +69,6 @@ config BT_HCI_TX_PRIO
 	# Hidden option for Co-Operative Tx thread priority
 	int
 	default 7
-
-config BT_WAIT_NOP
-	bool "Wait for \"NOP\" Command Complete event during init"
-	depends on BT_HCI
-	help
-	  Some controllers emit a Command Complete event for the NOP
-	  opcode to indicate that they're ready to receive commands.
-	  This option should be selected if the controller used
-	  exhibits such behavior.
 
 config BT_HCI_RESERVE
 	int
@@ -156,7 +152,6 @@ config BT_SETTINGS
 if BT_SETTINGS
 config BT_SETTINGS_CCC_STORE_ON_WRITE
 	bool "Store CCC value immediately after it has been written"
-	default n
 	help
 	  Store Client Configuration Characteristic value right after it has
 	  been updated.
@@ -226,35 +221,6 @@ config BT_CONN_TX_MAX
 	help
 	  Maximum number of pending TX buffers that have not yet
 	  been acknowledged by the controller.
-
-config BT_ATT_ENFORCE_FLOW
-	bool "Enforce strict flow control semantics for incoming PDUs"
-	default y if !(BOARD_QEMU_CORTEX_M3 || BOARD_QEMU_X86 || BOARD_NATIVE_POSIX)
-	help
-	  Enforce flow control rules on incoming PDUs, preventing a peer
-	  from sending new requests until a previous one has been responded
-	  or sending a new indication until a previous one has been
-	  confirmed. This may need to be disabled to avoid potential race
-	  conditions arising from a USB based HCI transport that splits
-	  HCI events and ACL data to separate endpoints.
-
-config BT_ATT_PREPARE_COUNT
-	int "Number of ATT prepare write buffers"
-	default 0
-	range 0 64
-	help
-	  Number of buffers available for ATT prepare write, setting
-	  this to 0 disables GATT long/reliable writes.
-
-config BT_ATT_TX_MAX
-	int "Maximum number of queued outgoing ATT PDUs"
-	default 2
-	range 1 BT_L2CAP_TX_BUF_COUNT
-	help
-	  Number of ATT PDUs that can be at a single moment queued for
-	  transmission. If the application tries to send more than this
-	  amount the calls will block until an existing queued PDU gets
-	  sent.
 
 config BT_AUTO_PHY_UPDATE
 	bool "Auto-initiate PHY Update Procedure"
@@ -354,6 +320,61 @@ config BT_L2CAP_DYNAMIC_CHANNEL
 	  This option enables support for LE Connection oriented Channels,
 	  allowing the creation of dynamic L2CAP Channels.
 
+menu "ATT and GATT Options"
+
+config BT_ATT_ENFORCE_FLOW
+	bool "Enforce strict flow control semantics for incoming PDUs"
+	default y if !(BOARD_QEMU_CORTEX_M3 || BOARD_QEMU_X86 || BOARD_NATIVE_POSIX)
+	help
+	  Enforce flow control rules on incoming PDUs, preventing a peer
+	  from sending new requests until a previous one has been responded
+	  or sending a new indication until a previous one has been
+	  confirmed. This may need to be disabled to avoid potential race
+	  conditions arising from a USB based HCI transport that splits
+	  HCI events and ACL data to separate endpoints.
+
+config BT_ATT_PREPARE_COUNT
+	int "Number of ATT prepare write buffers"
+	default 0
+	range 0 64
+	help
+	  Number of buffers available for ATT prepare write, setting
+	  this to 0 disables GATT long/reliable writes.
+
+config BT_ATT_TX_MAX
+	int "Maximum number of queued outgoing ATT PDUs"
+	default 2
+	range 1 BT_L2CAP_TX_BUF_COUNT
+	help
+	  Number of ATT PDUs that can be at a single moment queued for
+	  transmission. If the application tries to send more than this
+	  amount the calls will block until an existing queued PDU gets
+	  sent.
+
+config BT_GATT_CACHING
+	bool "GATT Caching support"
+	default y
+	select TINYCRYPT
+	select TINYCRYPT_AES
+	select TINYCRYPT_AES_CMAC
+	help
+	  This option enables support for GATT Caching. When enabled the stack
+	  will register Client Supported Features and Database Hash
+	  characteristics which can be used by clients to detect if anything has
+	  changed on the GATT database.
+
+config BT_GATT_ENFORCE_CHANGE_UNAWARE
+	bool "GATT Enforce change-unaware state"
+	depends on BT_GATT_CACHING
+	help
+	 When enable this option blocks notification and indications to client
+	 to conform to the following statement from the Bluetooth 5.1
+	 specification:
+	 '...the server shall not send notifications and indications to such
+	 a client until it becomes change-aware."
+	 In case the service cannot deal with sudden errors (-EAGAIN) then it
+	 shall not use this option.
+
 config BT_GATT_CLIENT
 	bool "GATT client support"
 	help
@@ -365,6 +386,8 @@ config BT_GATT_READ_MULTIPLE
 	help
 	  This option enables support for the GATT Read Multiple Characteristic
 	  Values procedure.
+
+endmenu
 
 config BT_MAX_PAIRED
 	int "Maximum number of paired devices"
@@ -390,12 +413,16 @@ if BT_GAP_PERIPHERAL_PREF_PARAMS
 config BT_PERIPHERAL_PREF_MIN_INT
 	int "Peripheral preferred minimum connection interval in 1.25ms units"
 	default 24
-	range 6 3200
+	range 6 65535
+	help
+	  Range 3200 to 65534 is invalid. 65535 represents no specific value.
 
 config BT_PERIPHERAL_PREF_MAX_INT
 	int "Peripheral preferred maximum connection interval in 1.25ms units"
 	default 40
-	range 6 3200
+	range 6 65535
+	help
+	  Range 3200 to 65534 is invalid. 65535 represents no specific value.
 
 config BT_PERIPHERAL_PREF_SLAVE_LATENCY
 	int "Peripheral preferred slave latency in Connection Intervals"
@@ -405,12 +432,13 @@ config BT_PERIPHERAL_PREF_SLAVE_LATENCY
 config BT_PERIPHERAL_PREF_TIMEOUT
 	int "Peripheral preferred supervision timeout in 10ms units"
 	default 42
-	range 10 3200
+	range 10 65535
 	help
 	  It is up to user to provide valid timeout which pass required minimum
 	  value: in milliseconds it shall be larger than
 	  "(1+ Conn_Latency) * Conn_Interval_Max * 2"
 	  where Conn_Interval_Max is given in milliseconds.
+	  Range 3200 to 65534 is invalid. 65535 represents no specific value.
 endif # BT_GAP_PERIPHERAL_PREF_PARAMS
 
 config BT_CREATE_CONN_TIMEOUT

@@ -64,10 +64,10 @@
 #define TICK_IRQ TIMER_0_IRQ
 #elif defined(CONFIG_ARCV2_TIMER)
 #define TICK_IRQ IRQ_TIMER0
-#elif defined(CONFIG_PULPINO_TIMER)
-#define TICK_IRQ PULP_TIMER_A_CMP_IRQ
 #elif defined(CONFIG_RISCV_MACHINE_TIMER)
 #define TICK_IRQ RISCV_MACHINE_TIMER_IRQ
+#elif defined(CONFIG_RV32M1_LPTMR_TIMER)
+#define TICK_IRQ DT_OPENISA_RV32M1_LPTMR_SYSTEM_LPTMR_IRQ
 #elif defined(CONFIG_CPU_CORTEX_M)
 /*
  * The Cortex-M use the SYSTICK exception for the system timer, which is

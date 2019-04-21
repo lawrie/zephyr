@@ -1,6 +1,9 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
 #include <arm/armv7-m.dtsi>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/i2c/i2c.h>
+#include "gpio_gecko.h"
 
 / {
 	cpus {
@@ -101,7 +104,7 @@
 			status = "disabled";
 		};
 
-		gpio@4000a400 {
+		gpio: gpio@4000a400 {
 			compatible = "silabs,efr32mg-gpio";
 			reg = <0x4000a400 0xc00>;
 			interrupts = <9 2 17 2>;

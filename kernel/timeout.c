@@ -12,7 +12,7 @@
 
 #define LOCKED(lck) for (k_spinlock_key_t __i = {},			\
 					  __key = k_spin_lock(lck);	\
-			!__i.key;					\
+			__i.key == 0;					\
 			k_spin_unlock(lck, __key), __i.key = 1)
 
 static u64_t curr_tick;
@@ -46,15 +46,11 @@ static struct _timeout *next(struct _timeout *t)
 
 static void remove_timeout(struct _timeout *t)
 {
-	if (t->node.next != NULL && t->node.prev != NULL) {
-		if (next(t) != NULL) {
-			next(t)->dticks += t->dticks;
-		}
-
-		sys_dlist_remove(&t->node);
+	if (next(t) != NULL) {
+		next(t)->dticks += t->dticks;
 	}
-	t->node.next = t->node.prev = NULL;
-	t->dticks = _INACTIVE;
+
+	sys_dlist_remove(&t->node);
 }
 
 static s32_t elapsed(void)
@@ -62,11 +58,25 @@ static s32_t elapsed(void)
 	return announce_remaining == 0 ? z_clock_elapsed() : 0;
 }
 
-void _add_timeout(struct _timeout *to, _timeout_func_t fn, s32_t ticks)
+static s32_t next_timeout(void)
 {
-	__ASSERT(to->dticks < 0, "");
+	int maxw = can_wait_forever ? K_FOREVER : INT_MAX;
+	struct _timeout *to = first();
+	s32_t ret = to == NULL ? maxw : MAX(0, to->dticks - elapsed());
+
+#ifdef CONFIG_TIMESLICING
+	if (_current_cpu->slice_ticks && _current_cpu->slice_ticks < ret) {
+		ret = _current_cpu->slice_ticks;
+	}
+#endif
+	return ret;
+}
+
+void z_add_timeout(struct _timeout *to, _timeout_func_t fn, s32_t ticks)
+{
+	__ASSERT(!sys_dnode_is_linked(&to->node), "");
 	to->fn = fn;
-	ticks = max(1, ticks);
+	ticks = MAX(1, ticks);
 
 	LOCKED(&timeout_lock) {
 		struct _timeout *t;
@@ -77,8 +87,7 @@ void _add_timeout(struct _timeout *to, _timeout_func_t fn, s32_t ticks)
 
 			if (t->dticks > to->dticks) {
 				t->dticks -= to->dticks;
-				sys_dlist_insert_before(&timeout_list,
-							&t->node, &to->node);
+				sys_dlist_insert(&t->node, &to->node);
 				break;
 			}
 			to->dticks -= t->dticks;
@@ -89,17 +98,17 @@ void _add_timeout(struct _timeout *to, _timeout_func_t fn, s32_t ticks)
 		}
 
 		if (to == first()) {
-			z_clock_set_timeout(_get_next_timeout_expiry(), false);
+			z_clock_set_timeout(next_timeout(), false);
 		}
 	}
 }
 
-int _abort_timeout(struct _timeout *to)
+int z_abort_timeout(struct _timeout *to)
 {
-	int ret = _INACTIVE;
+	int ret = -EINVAL;
 
 	LOCKED(&timeout_lock) {
-		if (to->dticks != _INACTIVE) {
+		if (sys_dnode_is_linked(&to->node)) {
 			remove_timeout(to);
 			ret = 0;
 		}
@@ -112,7 +121,7 @@ s32_t z_timeout_remaining(struct _timeout *timeout)
 {
 	s32_t ticks = 0;
 
-	if (timeout->dticks == _INACTIVE) {
+	if (z_is_inactive_timeout(timeout)) {
 		return 0;
 	}
 
@@ -125,32 +134,23 @@ s32_t z_timeout_remaining(struct _timeout *timeout)
 		}
 	}
 
-	return ticks;
+	return ticks - elapsed();
 }
 
-s32_t _get_next_timeout_expiry(void)
+s32_t z_get_next_timeout_expiry(void)
 {
-	s32_t ret = 0;
-	int maxw = can_wait_forever ? K_FOREVER : INT_MAX;
+	s32_t ret = K_FOREVER;
 
 	LOCKED(&timeout_lock) {
-		struct _timeout *to = first();
-
-		ret = to == NULL ? maxw : max(0, to->dticks - elapsed());
+		ret = next_timeout();
 	}
-
-#ifdef CONFIG_TIMESLICING
-	if (_current_cpu->slice_ticks && _current_cpu->slice_ticks < ret) {
-		ret = _current_cpu->slice_ticks;
-	}
-#endif
 	return ret;
 }
 
 void z_set_timeout_expiry(s32_t ticks, bool idle)
 {
 	LOCKED(&timeout_lock) {
-		int next = _get_next_timeout_expiry();
+		int next = next_timeout();
 		bool sooner = (next == K_FOREVER) || (ticks < next);
 		bool imminent = next <= 1;
 
@@ -197,7 +197,7 @@ void z_clock_announce(s32_t ticks)
 	curr_tick += announce_remaining;
 	announce_remaining = 0;
 
-	z_clock_set_timeout(_get_next_timeout_expiry(), false);
+	z_clock_set_timeout(next_timeout(), false);
 
 	k_spin_unlock(&timeout_lock, key);
 }
@@ -234,7 +234,7 @@ u32_t z_tick_get_32(void)
 #endif
 }
 
-u32_t _impl_k_uptime_get_32(void)
+u32_t z_impl_k_uptime_get_32(void)
 {
 	return __ticks_to_ms(z_tick_get_32());
 }
@@ -242,11 +242,11 @@ u32_t _impl_k_uptime_get_32(void)
 #ifdef CONFIG_USERSPACE
 Z_SYSCALL_HANDLER(k_uptime_get_32)
 {
-	return _impl_k_uptime_get_32();
+	return z_impl_k_uptime_get_32();
 }
 #endif
 
-s64_t _impl_k_uptime_get(void)
+s64_t z_impl_k_uptime_get(void)
 {
 	return __ticks_to_ms(z_tick_get());
 }
@@ -257,7 +257,7 @@ Z_SYSCALL_HANDLER(k_uptime_get, ret_p)
 	u64_t *ret = (u64_t *)ret_p;
 
 	Z_OOPS(Z_SYSCALL_MEMORY_WRITE(ret, sizeof(*ret)));
-	*ret = _impl_k_uptime_get();
+	*ret = z_impl_k_uptime_get();
 	return 0;
 }
 #endif

@@ -13,6 +13,9 @@
 #include "settings/settings_fcb.h"
 #include "settings_priv.h"
 
+#include <logging/log.h>
+LOG_MODULE_DECLARE(settings, CONFIG_SETTINGS_LOG_LEVEL);
+
 #define SETTINGS_FCB_VERS		1
 
 struct settings_fcb_load_cb_arg {
@@ -38,7 +41,7 @@ int settings_fcb_src(struct settings_fcb *cf)
 	cf->cf_fcb.f_scratch_cnt = 1;
 
 	while (1) {
-		rc = fcb_init(CONFIG_SETTINGS_FCB_FLASH_AREA, &cf->cf_fcb);
+		rc = fcb_init(DT_FLASH_AREA_STORAGE_ID, &cf->cf_fcb);
 		if (rc) {
 			return -EINVAL;
 		}
@@ -120,7 +123,8 @@ static int read_handler(void *ctx, off_t off, char *buf, size_t *len)
 	struct fcb_entry_ctx *entry_ctx = ctx;
 
 	if (off >= entry_ctx->loc.fe_data_len) {
-		return -EINVAL;
+		*len = 0;
+		return 0;
 	}
 
 	if ((off + *len) > entry_ctx->loc.fe_data_len) {
@@ -152,14 +156,14 @@ static void settings_fcb_compress(struct settings_fcb *cf)
 	loc1.fap = cf->cf_fcb.fap;
 
 	loc1.loc.fe_sector = NULL;
-	loc1.loc.fe_elem_off = 0;
+	loc1.loc.fe_elem_off = 0U;
 
 	while (fcb_getnext(&cf->cf_fcb, &loc1.loc) == 0) {
 		if (loc1.loc.fe_sector != cf->cf_fcb.f_oldest) {
 			break;
 		}
 
-		off_t val1_off;
+		size_t val1_off;
 
 		rc = settings_line_name_read(name1, sizeof(name1), &val1_off,
 					     &loc1);
@@ -178,7 +182,7 @@ static void settings_fcb_compress(struct settings_fcb *cf)
 		copy = 1;
 
 		while (fcb_getnext(&cf->cf_fcb, &loc2.loc) == 0) {
-			off_t val2_off;
+			size_t val2_off;
 
 			rc = settings_line_name_read(name2, sizeof(name2),
 						     &val2_off, &loc2);
@@ -210,11 +214,16 @@ static void settings_fcb_compress(struct settings_fcb *cf)
 			continue;
 		}
 		rc = fcb_append_finish(&cf->cf_fcb, &loc2.loc);
-		__ASSERT(rc == 0, "Failed to finish fcb_append.\n");
+
+		if (rc != 0) {
+			LOG_ERR("Failed to finish fcb_append (%d)", rc);
+		}
 	}
 	rc = fcb_rotate(&cf->cf_fcb);
 
-	__ASSERT(rc == 0, "Failed to fcb rotate.\n");
+	if (rc != 0) {
+		LOG_ERR("Failed to fcb rotate (%d)", rc);
+	}
 }
 
 static size_t get_len_cb(void *ctx)
@@ -248,10 +257,10 @@ static int settings_fcb_save(struct settings_store *cs, const char *name,
 		return -EINVAL;
 	}
 
-	wbs = flash_area_align(cf->cf_fcb.fap);
+	wbs = cf->cf_fcb.f_align;
 	len = settings_line_len_calc(name, val_len);
 
-	for (i = 0; i < CONFIG_SETTINGS_FCB_NUM_AREAS; i++) {
+	for (i = 0; i < cf->cf_fcb.f_sector_cnt - 1; i++) {
 		rc = fcb_append(&cf->cf_fcb, len, &loc.loc);
 		if (rc != FCB_ERR_NOSPACE) {
 			break;

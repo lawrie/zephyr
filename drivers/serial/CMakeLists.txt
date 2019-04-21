@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 zephyr_library()
 zephyr_library_sources_ifdef(CONFIG_UART_ALTERA_JTAG uart_altera_jtag_hal.c)
 zephyr_library_sources_if_kconfig(uart_imx.c)
@@ -24,6 +26,8 @@ zephyr_library_sources_if_kconfig(uart_stm32.c)
 zephyr_library_sources_if_kconfig(uart_sam0.c)
 zephyr_library_sources_if_kconfig(usart_mcux_lpc.c)
 zephyr_library_sources_if_kconfig(uart_psoc6.c)
+zephyr_library_sources_if_kconfig(uart_pl011.c)
+zephyr_library_sources_if_kconfig(uart_rv32m1_lpuart.c)
 zephyr_library_sources_if_kconfig(uart_spinal_lib_com.c)
 zephyr_library_sources_if_kconfig(uart_vexriscv_cpp_regression.c)
 

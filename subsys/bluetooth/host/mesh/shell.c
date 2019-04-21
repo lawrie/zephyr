@@ -393,7 +393,7 @@ static int cmd_static_oob(const struct shell *shell, size_t argc, char *argv[])
 {
 	if (argc < 2) {
 		prov.static_val = NULL;
-		prov.static_val_len = 0;
+		prov.static_val_len = 0U;
 	} else {
 		prov.static_val_len = hex2bin(argv[1], static_val, 16);
 		if (prov.static_val_len) {
@@ -620,7 +620,7 @@ static int cmd_get_comp(const struct shell *shell, size_t argc, char *argv[])
 
 		shell_print(shell, "\tElement @ 0x%04x:", loc);
 
-		if (comp.len < ((sig * 2) + (vnd * 4))) {
+		if (comp.len < ((sig * 2U) + (vnd * 4U))) {
 			shell_print(shell, "\t\t...truncated data!");
 			break;
 		}
@@ -1932,7 +1932,7 @@ static int cmd_del_fault(const struct shell *shell, size_t argc, char *argv[])
 	return 0;
 }
 
-SHELL_CREATE_STATIC_SUBCMD_SET(mesh_cmds) {
+SHELL_STATIC_SUBCMD_SET_CREATE(mesh_cmds,
 	SHELL_CMD_ARG(init, NULL, NULL, cmd_init, 1, 0),
 	SHELL_CMD_ARG(timeout, NULL, "[timeout in seconds]", cmd_timeout, 1, 1),
 #if defined(CONFIG_BT_MESH_PB_ADV)
@@ -2026,7 +2026,7 @@ SHELL_CREATE_STATIC_SUBCMD_SET(mesh_cmds) {
 	SHELL_CMD_ARG(del-fault, NULL, "[Fault ID]", cmd_del_fault, 1, 1),
 
 	SHELL_SUBCMD_SET_END
-};
+);
 
 static int cmd_mesh(const struct shell *shell, size_t argc, char **argv)
 {

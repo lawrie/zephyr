@@ -6,7 +6,7 @@
 #include <kernel.h>
 #include <errno.h>
 #include <posix/time.h>
-#include <posix/sys/types.h>
+#include <posix/posix_types.h>
 
 #define INITIALIZED 1
 #define NOT_INITIALIZED 0
@@ -95,7 +95,7 @@ int pthread_rwlock_timedrdlock(pthread_rwlock_t *rwlock,
 
 	timeout = (s32_t) timespec_to_timeoutms(abstime);
 
-	if (read_lock_acquire(rwlock, timeout) != 0) {
+	if (read_lock_acquire(rwlock, timeout) != 0U) {
 		ret = ETIMEDOUT;
 	}
 
@@ -157,7 +157,7 @@ int pthread_rwlock_timedwrlock(pthread_rwlock_t *rwlock,
 
 	timeout = (s32_t) timespec_to_timeoutms(abstime);
 
-	if (write_lock_acquire(rwlock, timeout) != 0) {
+	if (write_lock_acquire(rwlock, timeout) != 0U) {
 		ret = ETIMEDOUT;
 	}
 

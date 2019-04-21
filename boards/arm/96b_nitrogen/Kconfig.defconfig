@@ -18,9 +18,12 @@ endif # I2C
 
 if SPI
 
-config SPI_0
+config SPI_1
 	default y
 
 endif # SPI
+
+config BT_CTLR
+	default BT
 
 endif # BOARD_96B_NITROGEN

@@ -1,12 +1,4 @@
-zephyr_include_directories_ifdef(CONFIG_CONSOLE_SHELL
-  ${ZEPHYR_BASE}/include/drivers
-  )
-
-zephyr_sources_ifdef(
-  CONFIG_CONSOLE_SHELL
-  shell_service.c
-  legacy_shell.c
-  )
+# SPDX-License-Identifier: Apache-2.0
 
 add_subdirectory(modules)
 
@@ -31,6 +23,11 @@ zephyr_sources_ifdef(
 zephyr_sources_ifdef(
   CONFIG_SHELL_BACKEND_RTT
   shell_rtt.c
+)
+
+zephyr_sources_ifdef(
+  CONFIG_SHELL_BACKEND_TELNET
+  shell_telnet.c
 )
 
 zephyr_sources_ifdef(

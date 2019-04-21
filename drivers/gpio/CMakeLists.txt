@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 zephyr_library()
 
 zephyr_library_sources_ifdef(CONFIG_GPIO_ALTERA_NIOS2 gpio_altera_nios2.c)
@@ -17,7 +19,6 @@ zephyr_library_sources_ifdef(CONFIG_GPIO_MCUX_LPC   gpio_mcux_lpc.c)
 zephyr_library_sources_ifdef(CONFIG_GPIO_MMIO32     gpio_mmio32.c)
 zephyr_library_sources_ifdef(CONFIG_GPIO_NRFX       gpio_nrfx.c)
 zephyr_library_sources_ifdef(CONFIG_GPIO_PCAL9535A  gpio_pcal9535a.c)
-zephyr_library_sources_ifdef(CONFIG_GPIO_PULPINO    gpio_pulpino.c)
 zephyr_library_sources_ifdef(CONFIG_GPIO_QMSI       gpio_qmsi.c)
 zephyr_library_sources_ifdef(CONFIG_GPIO_QMSI_SS    gpio_qmsi_ss.c)
 zephyr_library_sources_ifdef(CONFIG_GPIO_SCH        gpio_sch.c)
@@ -26,6 +27,8 @@ zephyr_library_sources_ifdef(CONFIG_GPIO_SAM0       gpio_sam0.c)
 zephyr_library_sources_ifdef(CONFIG_GPIO_SAM        gpio_sam.c)
 zephyr_library_sources_ifdef(CONFIG_GPIO_SX1509B    gpio_sx1509b.c)
 zephyr_library_sources_ifdef(CONFIG_GPIO_INTEL_APL  gpio_intel_apl.c)
+zephyr_library_sources_ifdef(CONFIG_GPIO_STELLARIS  gpio_stellaris.c)
+zephyr_library_sources_ifdef(CONFIG_GPIO_RV32M1     gpio_rv32m1.c)
 
 zephyr_library_sources_ifdef(CONFIG_GPIO_SHELL      gpio_shell.c)
 

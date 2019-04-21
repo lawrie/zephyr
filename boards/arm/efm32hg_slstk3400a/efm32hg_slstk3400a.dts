@@ -24,7 +24,6 @@
 		led1 = &led1;
 		sw0 = &button0;
 		sw1 = &button1;
-		usart-1 = &usart1;
 	};
 
 	leds {
@@ -57,6 +56,7 @@
 
 &usart1 {
 	current-speed = <115200>;
-	location = <4>;
+	location-rx = <GECKO_LOCATION(4) GECKO_PORT_A GECKO_PIN(0)>;
+	location-tx = <GECKO_LOCATION(4) GECKO_PORT_F GECKO_PIN(2)>;
 	status = "ok";
 };

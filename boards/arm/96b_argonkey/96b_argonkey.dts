@@ -5,7 +5,7 @@
  */
 
 /dts-v1/;
-#include <st/f4/stm32f412cg.dtsi>
+#include <st/f4/stm32f412Xg.dtsi>
 
 / {
 	model = "Tocoding Argonkey 96boards";
@@ -71,6 +71,12 @@
 
 &i2s5 {
 	status = "ok";
+
+	mp34dt05@0 {
+		compatible = "st,mpxxdtyy";
+		reg = <0>;
+		label = "MP34DT05";
+	};
 };
 
 &i2c1 {
@@ -86,6 +92,7 @@
 		compatible = "st,hts221";
 		reg = <0x5f>;
 		label = "HTS221";
+		drdy-gpios = <&gpioa 2 GPIO_INT_ACTIVE_LOW>;
 	};
 
 	lps22hb-press@5d {

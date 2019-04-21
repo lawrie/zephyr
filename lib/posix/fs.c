@@ -12,7 +12,7 @@
 #include <string.h>
 #include <misc/fdtable.h>
 
-BUILD_ASSERT_MSG(PATH_MAX > MAX_FILE_NAME,
+BUILD_ASSERT_MSG(PATH_MAX >= MAX_FILE_NAME,
 		"PATH_MAX is less than MAX_FILE_NAME");
 
 struct posix_fs_desc {
@@ -249,7 +249,7 @@ struct dirent *readdir(DIR *dirp)
 	}
 
 	rc = strlen(fdirent.name);
-	rc = (rc < PATH_MAX) ? rc : (PATH_MAX - 1);
+	rc = (rc < MAX_FILE_NAME) ? rc : (MAX_FILE_NAME - 1);
 	(void)memcpy(pdirent.d_name, fdirent.name, rc);
 
 	/* Make sure the name is NULL terminated */

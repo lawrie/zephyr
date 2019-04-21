@@ -145,7 +145,7 @@ void bt_avdtp_l2cap_encrypt_changed(struct bt_l2cap_chan *chan, u8_t status)
 
 int bt_avdtp_l2cap_recv(struct bt_l2cap_chan *chan, struct net_buf *buf)
 {
-	struct bt_avdtp_single_sig_hdr *hdr = (void *)buf->data;
+	struct bt_avdtp_single_sig_hdr *hdr;
 	struct bt_avdtp *session = AVDTP_CHAN(chan);
 	u8_t i, msgtype, sigid, tid;
 
@@ -154,13 +154,13 @@ int bt_avdtp_l2cap_recv(struct bt_l2cap_chan *chan, struct net_buf *buf)
 		return 0;
 	}
 
+	hdr = net_buf_pull_mem(buf, sizeof(*hdr));
 	msgtype = AVDTP_GET_MSG_TYPE(hdr->hdr);
 	sigid = AVDTP_GET_SIG_ID(hdr->signal_id);
 	tid = AVDTP_GET_TR_ID(hdr->hdr);
 
 	BT_DBG("msg_type[0x%02x] sig_id[0x%02x] tid[0x%02x]",
 		msgtype, sigid, tid);
-	net_buf_pull(buf, sizeof(*hdr));
 
 	/* validate if there is an outstanding resp expected*/
 	if (msgtype != BT_AVDTP_CMD) {
@@ -272,7 +272,7 @@ int bt_avdtp_register_sep(u8_t media_type, u8_t role,
 	}
 
 	lsep->sep.id = bt_avdtp_seid++;
-	lsep->sep.inuse = 0;
+	lsep->sep.inuse = 0U;
 	lsep->sep.media_type = media_type;
 	lsep->sep.tsep = role;
 

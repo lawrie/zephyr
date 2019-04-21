@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 zephyr_compile_options(
   -fno-freestanding
   -m32
@@ -12,6 +14,7 @@ zephyr_include_directories(${BOARD_DIR})
 zephyr_compile_options_ifdef(CONFIG_COVERAGE
   -fprofile-arcs
   -ftest-coverage
+  -fno-inline
 )
 zephyr_link_libraries_ifdef(CONFIG_COVERAGE
 	-lgcov

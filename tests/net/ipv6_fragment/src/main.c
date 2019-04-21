@@ -726,6 +726,180 @@ static unsigned char ipv6_second_frag[] = {
 0x11, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04,
 };
 
+static unsigned char ipv6_frag_wo_hbho[] = {
+0x60, 0x08, 0xd7, 0x22, 0x05, 0x1c, 0x3a, 0x40,
+0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02,
+0x20, 0x01, 0x0d, 0xb8, 0x00, 0x00, 0x00, 0x00,
+0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+/* ICMPv6 header */
+0x80, 0x00, 0xb2, 0xb2, 0x28, 0x5b, 0x00, 0x01,
+/* Payload */
+0x55, 0x85, 0x93, 0x5c, 0x00, 0x00, 0x00, 0x00,
+0x72, 0xe0, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00,
+0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
+0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
+0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f,
+0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
+0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f,
+0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57,
+0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f,
+0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67,
+0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f,
+0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77,
+0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f,
+0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
+0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f,
+0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
+0x98, 0x99, 0x9a, 0x9b, 0x9c, 0x9d, 0x9e, 0x9f,
+0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,
+0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf,
+0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7,
+0xb8, 0xb9, 0xba, 0xbb, 0xbc, 0xbd, 0xbe, 0xbf,
+0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7,
+0xc8, 0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf,
+0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7,
+0xd8, 0xd9, 0xda, 0xdb, 0xdc, 0xdd, 0xde, 0xdf,
+0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7,
+0xe8, 0xe9, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xef,
+0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
+0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff,
+0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
+0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
+0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f,
+0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
+0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f,
+0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57,
+0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f,
+0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67,
+0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f,
+0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77,
+0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f,
+0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
+0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f,
+0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
+0x98, 0x99, 0x9a, 0x9b, 0x9c, 0x9d, 0x9e, 0x9f,
+0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,
+0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf,
+0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7,
+0xb8, 0xb9, 0xba, 0xbb, 0xbc, 0xbd, 0xbe, 0xbf,
+0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7,
+0xc8, 0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf,
+0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7,
+0xd8, 0xd9, 0xda, 0xdb, 0xdc, 0xdd, 0xde, 0xdf,
+0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7,
+0xe8, 0xe9, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xef,
+0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
+0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff,
+0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
+0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
+0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f,
+0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
+0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f,
+0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57,
+0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f,
+0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67,
+0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f,
+0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77,
+0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f,
+0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
+0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f,
+0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
+0x98, 0x99, 0x9a, 0x9b, 0x9c, 0x9d, 0x9e, 0x9f,
+0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,
+0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf,
+0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7,
+0xb8, 0xb9, 0xba, 0xbb, 0xbc, 0xbd, 0xbe, 0xbf,
+0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7,
+0xc8, 0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf,
+0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7,
+0xd8, 0xd9, 0xda, 0xdb, 0xdc, 0xdd, 0xde, 0xdf,
+0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7,
+0xe8, 0xe9, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xef,
+0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
+0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff,
+0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
+0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
+0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f,
+0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
+0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f,
+0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57,
+0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f,
+0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67,
+0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f,
+0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77,
+0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f,
+0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
+0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f,
+0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
+0x98, 0x99, 0x9a, 0x9b, 0x9c, 0x9d, 0x9e, 0x9f,
+0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,
+0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf,
+0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7,
+0xb8, 0xb9, 0xba, 0xbb, 0xbc, 0xbd, 0xbe, 0xbf,
+0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7,
+0xc8, 0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf,
+0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7,
+0xd8, 0xd9, 0xda, 0xdb, 0xdc, 0xdd, 0xde, 0xdf,
+0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7,
+0xe8, 0xe9, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xef,
+0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
+0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff,
+0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17,
+0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d, 0x1e, 0x1f,
+0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27,
+0x28, 0x29, 0x2a, 0x2b, 0x2c, 0x2d, 0x2e, 0x2f,
+0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37,
+0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f,
+0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
+0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f,
+0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57,
+0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5e, 0x5f,
+0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67,
+0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x6f,
+0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77,
+0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e, 0x7f,
+0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87,
+0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f,
+0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
+0x98, 0x99, 0x9a, 0x9b, 0x9c, 0x9d, 0x9e, 0x9f,
+0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7,
+0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf,
+0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7,
+0xb8, 0xb9, 0xba, 0xbb, 0xbc, 0xbd, 0xbe, 0xbf,
+0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7,
+0xc8, 0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf,
+0xd0, 0xd1, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7,
+0xd8, 0xd9, 0xda, 0xdb, 0xdc, 0xdd, 0xde, 0xdf,
+0xe0, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7,
+0xe8, 0xe9, 0xea, 0xeb, 0xec, 0xed, 0xee, 0xef,
+0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7,
+0xf8, 0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff,
+0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+0x10, 0x11, 0x12, 0x13
+};
+
 static int frag_count;
 
 static struct net_if *iface1;
@@ -738,8 +912,6 @@ static struct k_sem wait_data;
 static u16_t pkt_data_len;
 static u16_t pkt_recv_data_len;
 
-static bool large_hbho;
-
 #define WAIT_TIME K_SECONDS(1)
 
 #define ALLOC_TIMEOUT 500
@@ -749,6 +921,15 @@ struct net_if_test {
 	u8_t mac_addr[sizeof(struct net_eth_addr)];
 	struct net_linkaddr ll_addr;
 };
+
+enum net_test_type {
+	NO_TEST_TYPE,
+	IPV6_SMALL_HBHO_FRAG,
+	IPV6_LARGE_HBHO_FRAG,
+	IPV6_WITHOUT_HBHO_FRAG
+};
+
+static enum net_test_type test_type = NO_TEST_TYPE;
 
 static int net_iface_dev_init(struct device *dev)
 {
@@ -770,7 +951,7 @@ static u8_t *net_iface_get_mac(struct device *dev)
 	}
 
 	data->ll_addr.addr = data->mac_addr;
-	data->ll_addr.len = 6;
+	data->ll_addr.len = 6U;
 
 	return data->mac_addr;
 }
@@ -796,15 +977,21 @@ static int verify_fragment(struct net_pkt *pkt)
 
 	frag_count++;
 
-	if (!large_hbho) {
+	DBG("test_type %d, frag count %d\n", test_type, frag_count);
+
+	switch (test_type) {
+	case IPV6_SMALL_HBHO_FRAG:
 		goto small;
-	} else {
+	case IPV6_LARGE_HBHO_FRAG:
 		goto large;
+	case IPV6_WITHOUT_HBHO_FRAG:
+		goto without;
+	default:
+		return 0;
 	}
 
 small:
 	if (frag_count == 1) {
-
 		/* First fragment received. Make sure that all the
 		 * things are correct before the fragment header.
 		 */
@@ -814,22 +1001,22 @@ small:
 
 		ipv6_first_frag[4] = total_len / 256;
 		ipv6_first_frag[5] = total_len -
-			ipv6_first_frag[4] * 256;
+			ipv6_first_frag[4] * 256U;
 
-		if ((total_len / 256) != pkt->frags->data[4]) {
+		if ((total_len / 256) != pkt->buffer->data[4]) {
 			DBG("Invalid length, 1st byte\n");
 			return -EINVAL;
 		}
 
-		if ((total_len - pkt->frags->data[4] * 256) !=
-		    pkt->frags->data[5]) {
+		if ((total_len - pkt->buffer->data[4] * 256U) !=
+		    pkt->buffer->data[5]) {
 			DBG("Invalid length, 2nd byte\n");
 			return -EINVAL;
 		}
 
-		offset = pkt->frags->data[6 * 8 + 2] * 256 +
-			(pkt->frags->data[6 * 8 + 3] & 0xfe);
-		if (offset != 0) {
+		offset = pkt->buffer->data[6 * 8 + 2] * 256U +
+			(pkt->buffer->data[6 * 8 + 3] & 0xfe);
+		if (offset != 0U) {
 			DBG("Invalid offset %d\n", offset);
 			return -EINVAL;
 		}
@@ -843,13 +1030,13 @@ small:
 			sizeof(struct net_ipv6_frag_hdr);
 
 		/* Rewrite the fragment id so that the memcmp() will not fail */
-		ipv6_first_frag[6 * 8 + 4] = pkt->frags->data[6 * 8 + 4];
-		ipv6_first_frag[6 * 8 + 5] = pkt->frags->data[6 * 8 + 5];
-		ipv6_first_frag[6 * 8 + 6] = pkt->frags->data[6 * 8 + 6];
-		ipv6_first_frag[6 * 8 + 7] = pkt->frags->data[6 * 8 + 7];
+		ipv6_first_frag[6 * 8 + 4] = pkt->buffer->data[6 * 8 + 4];
+		ipv6_first_frag[6 * 8 + 5] = pkt->buffer->data[6 * 8 + 5];
+		ipv6_first_frag[6 * 8 + 6] = pkt->buffer->data[6 * 8 + 6];
+		ipv6_first_frag[6 * 8 + 7] = pkt->buffer->data[6 * 8 + 7];
 
-		if (memcmp(pkt->frags->data, ipv6_first_frag, 7 * 8) != 0) {
-			net_hexdump("received", pkt->frags->data, 7 * 8);
+		if (memcmp(pkt->buffer->data, ipv6_first_frag, 7 * 8) != 0) {
+			net_hexdump("received", pkt->buffer->data, 7 * 8);
 			DBG("\n");
 			net_hexdump("expected", ipv6_first_frag, 7 * 8);
 
@@ -865,21 +1052,21 @@ small:
 
 		ipv6_second_frag[4] = total_len / 256;
 		ipv6_second_frag[5] = total_len -
-			ipv6_second_frag[4] * 256;
+			ipv6_second_frag[4] * 256U;
 
-		if ((total_len / 256) != pkt->frags->data[4]) {
+		if ((total_len / 256) != pkt->buffer->data[4]) {
 			DBG("Invalid length, 1st byte\n");
 			return -EINVAL;
 		}
 
-		if ((total_len - pkt->frags->data[4] * 256) !=
-		    pkt->frags->data[5]) {
+		if ((total_len - pkt->buffer->data[4] * 256U) !=
+		    pkt->buffer->data[5]) {
 			DBG("Invalid length, 2nd byte\n");
 			return -EINVAL;
 		}
 
-		offset = pkt->frags->data[6 * 8 + 2] * 256 +
-			(pkt->frags->data[6 * 8 + 3] & 0xfe);
+		offset = pkt->buffer->data[6 * 8 + 2] * 256U +
+			(pkt->buffer->data[6 * 8 + 3] & 0xfe);
 
 		if (offset != pkt_recv_data_len) {
 			DBG("Invalid offset %d received %d\n",
@@ -888,7 +1075,7 @@ small:
 		}
 
 		/* Make sure the MORE flag is set correctly */
-		if ((pkt->frags->data[6 * 8 + 3] & 0x01) != 0) {
+		if ((pkt->buffer->data[6 * 8 + 3] & 0x01) != 0U) {
 			DBG("Invalid MORE flag for second fragment\n");
 			return -EINVAL;
 		}
@@ -896,17 +1083,17 @@ small:
 		pkt_recv_data_len += total_len - 8 /* HBHO */ - 8 /* UDP */ -
 			sizeof(struct net_ipv6_frag_hdr);
 
-		ipv6_second_frag[6 * 8 + 2] = pkt->frags->data[6 * 8 + 2];
-		ipv6_second_frag[6 * 8 + 3] = pkt->frags->data[6 * 8 + 3];
+		ipv6_second_frag[6 * 8 + 2] = pkt->buffer->data[6 * 8 + 2];
+		ipv6_second_frag[6 * 8 + 3] = pkt->buffer->data[6 * 8 + 3];
 
 		/* Rewrite the fragment id so that the memcmp() will not fail */
-		ipv6_second_frag[6 * 8 + 4] = pkt->frags->data[6 * 8 + 4];
-		ipv6_second_frag[6 * 8 + 5] = pkt->frags->data[6 * 8 + 5];
-		ipv6_second_frag[6 * 8 + 6] = pkt->frags->data[6 * 8 + 6];
-		ipv6_second_frag[6 * 8 + 7] = pkt->frags->data[6 * 8 + 7];
+		ipv6_second_frag[6 * 8 + 4] = pkt->buffer->data[6 * 8 + 4];
+		ipv6_second_frag[6 * 8 + 5] = pkt->buffer->data[6 * 8 + 5];
+		ipv6_second_frag[6 * 8 + 6] = pkt->buffer->data[6 * 8 + 6];
+		ipv6_second_frag[6 * 8 + 7] = pkt->buffer->data[6 * 8 + 7];
 
-		if (memcmp(pkt->frags->data, ipv6_second_frag, 7 * 8) != 0) {
-			net_hexdump("received 2", pkt->frags->data, 7 * 8);
+		if (memcmp(pkt->buffer->data, ipv6_second_frag, 7 * 8) != 0) {
+			net_hexdump("received 2", pkt->buffer->data, 7 * 8);
 			DBG("\n");
 			net_hexdump("expected 2", ipv6_second_frag, 7 * 8);
 
@@ -923,14 +1110,14 @@ small:
 	return 0;
 
 large:
+	net_pkt_cursor_init(pkt);
+
 	if (frag_count == 1) {
 		u16_t exp_ext_len = 1040U; /* 1032 (HBHO) + 8 (FRAG)*/
 		u16_t recv_ext_len;
 		u16_t exp_payload_len = 200U;
 		u16_t recv_payload_len;
 		u16_t frag_offset;
-		struct net_buf *frag;
-		u16_t pos;
 
 		recv_ext_len = net_pkt_ipv6_ext_len(pkt);
 		if (recv_ext_len != exp_ext_len) {
@@ -948,19 +1135,18 @@ large:
 			return -EINVAL;
 		}
 
-		frag = net_frag_read_be16(pkt->frags, 40 + 1032 + 2, &pos,
-					  &frag_offset);
-		if (!frag && pos == 0xffff) {
+		if (net_pkt_skip(pkt, 40 + 1032 + 2) ||
+		    net_pkt_read_be16(pkt, &frag_offset)) {
 			return -EINVAL;
 		}
 
-		if ((frag_offset & 0xfff8) != 0) {
+		if ((frag_offset & 0xfff8) != 0U) {
 			DBG("Invalid fragment offset %d\n",
 			    frag_offset & 0xfff8);
 			return -EINVAL;
 		}
 
-		if ((frag_offset & 0x0001) != 1) {
+		if ((frag_offset & 0x0001) != 1U) {
 			DBG("Fragment More flag should be set\n");
 			return -EINVAL;
 		}
@@ -972,8 +1158,6 @@ large:
 		u16_t exp_payload_len = 200U;
 		u16_t recv_payload_len;
 		u16_t frag_offset;
-		struct net_buf *frag;
-		u16_t pos;
 
 		recv_ext_len = net_pkt_ipv6_ext_len(pkt);
 		if (recv_ext_len != exp_ext_len) {
@@ -991,19 +1175,18 @@ large:
 			return -EINVAL;
 		}
 
-		frag = net_frag_read_be16(pkt->frags, 40 + 1032 + 2, &pos,
-					  &frag_offset);
-		if (!frag && pos == 0xffff) {
+		if (net_pkt_skip(pkt, 40 + 1032 + 2) ||
+		    net_pkt_read_be16(pkt, &frag_offset)) {
 			return -EINVAL;
 		}
 
-		if ((frag_offset & 0xfff8) != 200) {
+		if ((frag_offset & 0xfff8) != 200U) {
 			DBG("Invalid fragment offset %d\n",
 			    frag_offset & 0xfff8);
 			return -EINVAL;
 		}
 
-		if ((frag_offset & 0x0001) != 1) {
+		if ((frag_offset & 0x0001) != 1U) {
 			DBG("Fragment More flag should be set\n");
 			return -EINVAL;
 		}
@@ -1015,8 +1198,6 @@ large:
 		u16_t exp_payload_len = 16U;
 		u16_t recv_payload_len;
 		u16_t frag_offset;
-		struct net_buf *frag;
-		u16_t pos;
 
 		recv_ext_len = net_pkt_ipv6_ext_len(pkt);
 		if (recv_ext_len != exp_ext_len) {
@@ -1034,19 +1215,115 @@ large:
 			return -EINVAL;
 		}
 
-		frag = net_frag_read_be16(pkt->frags, 40 + 1032 + 2, &pos,
-					  &frag_offset);
-		if (!frag && pos == 0xffff) {
+		if (net_pkt_skip(pkt, 40 + 1032 + 2) ||
+		    net_pkt_read_be16(pkt, &frag_offset)) {
 			return -EINVAL;
 		}
 
-		if ((frag_offset & 0xfff8) != 400) {
+		if ((frag_offset & 0xfff8) != 400U) {
 			DBG("Invalid fragment offset %d\n",
 			    frag_offset & 0xfff8);
 			return -EINVAL;
 		}
 
-		if ((frag_offset & 0x0001) != 0) {
+		if ((frag_offset & 0x0001) != 0U) {
+			DBG("Fragment More flag should be unset\n");
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+
+without:
+	net_pkt_cursor_init(pkt);
+
+	if (frag_count == 1) {
+		u16_t exp_ext_len = 8U; /* 0 (HBHO) + 8 (FRAG)*/
+		u16_t recv_ext_len;
+		u16_t exp_payload_len = 1232U;
+		u16_t recv_payload_len;
+		u16_t frag_offset;
+
+		recv_ext_len = net_pkt_ipv6_ext_len(pkt);
+		if (recv_ext_len != exp_ext_len) {
+			DBG("Expected amount of Ext headers len is %d,"
+			    "but received %d\n", exp_ext_len, recv_ext_len);
+			return -EINVAL;
+		}
+
+		/* IPv6 + FRAG */
+		recv_payload_len = net_pkt_get_len(pkt) - 40 - 8;
+		if (recv_payload_len != exp_payload_len) {
+			DBG("Expected amount of payload len is %d,"
+			    "but received %d\n", exp_payload_len,
+			    recv_payload_len);
+			return -EINVAL;
+		}
+
+		if (pkt->buffer->data[6] != NET_IPV6_NEXTHDR_FRAG) {
+			DBG("Invalid IPv6 next header %d\n",
+			    pkt->buffer->data[6]);
+			return -EINVAL;
+		}
+
+		if (net_pkt_skip(pkt, 40 + 2) ||
+		    net_pkt_read_be16(pkt, &frag_offset)) {
+			return -EINVAL;
+		}
+
+		if ((frag_offset & 0xfff8) != 0U) {
+			DBG("Invalid fragment offset %d\n",
+			    frag_offset & 0xfff8);
+			return -EINVAL;
+		}
+
+		if ((frag_offset & 0x0001) != 1U) {
+			DBG("Fragment More flag should be set\n");
+			return -EINVAL;
+		}
+	}
+
+	if (frag_count == 2) {
+		u16_t exp_ext_len = 8U; /* 0 (HBHO) + 8 (FRAG)*/
+		u16_t recv_ext_len;
+		u16_t exp_payload_len = 76U;
+		u16_t recv_payload_len;
+		u16_t frag_offset;
+
+		recv_ext_len = net_pkt_ipv6_ext_len(pkt);
+		if (recv_ext_len != exp_ext_len) {
+			DBG("Expected amount of Ext headers len is %d,"
+			    "but received %d\n", exp_ext_len, recv_ext_len);
+			return -EINVAL;
+		}
+
+		if (pkt->buffer->data[6] != NET_IPV6_NEXTHDR_FRAG) {
+			DBG("Invalid IPv6 next header %d\n",
+			    pkt->buffer->data[6]);
+			return -EINVAL;
+		}
+
+		/* IPv6 + FRAG */
+		recv_payload_len = net_pkt_get_len(pkt) - 40 - 8;
+		if (recv_payload_len != exp_payload_len) {
+			DBG("Expected amount of payload len is %d,"
+			    "but received %d\n", exp_payload_len,
+			    recv_payload_len);
+			return -EINVAL;
+		}
+
+		if (net_pkt_skip(pkt, 40 + 2) ||
+		    net_pkt_read_be16(pkt, &frag_offset)) {
+			return -EINVAL;
+		}
+
+		if ((frag_offset & 0xfff8) != 1232U) {
+			DBG("Invalid fragment offset %d\n",
+			    frag_offset & 0xfff8);
+			return -EINVAL;
+		}
+
+		if ((frag_offset & 0x0001) != 0U) {
 			DBG("Fragment More flag should be unset\n");
 			return -EINVAL;
 		}
@@ -1057,7 +1334,7 @@ large:
 
 static int sender_iface(struct device *dev, struct net_pkt *pkt)
 {
-	if (!pkt->frags) {
+	if (!pkt->buffer) {
 		DBG("No data to send!\n");
 		return -ENODATA;
 	}
@@ -1125,6 +1402,8 @@ static void add_nbr(struct net_if *iface,
 
 static enum net_verdict udp_data_received(struct net_conn *conn,
 					  struct net_pkt *pkt,
+					  union net_ip_header *ip_hdr,
+					  union net_proto_header *proto_hdr,
 					  void *user_data)
 {
 	DBG("Data %p received\n", pkt);
@@ -1150,8 +1429,8 @@ static void setup_udp_handler(const struct in6_addr *raddr,
 	net_ipaddr_copy(&net_sin6(&remote_addr)->sin6_addr, raddr);
 	remote_addr.sa_family = AF_INET6;
 
-	ret = net_udp_register(&remote_addr, &local_addr, remote_port,
-			       local_port, udp_data_received,
+	ret = net_udp_register(AF_INET6, &remote_addr, &local_addr,
+			       remote_port, local_port, udp_data_received,
 			       NULL, &handle);
 	zassert_equal(ret, 0, "Cannot register UDP handler");
 }
@@ -1164,17 +1443,19 @@ static void test_setup(void)
 	/* The semaphore is there to wait the data to be received. */
 	k_sem_init(&wait_data, 0, UINT_MAX);
 
-	iface1 = net_if_get_by_index(0);
-	iface2 = net_if_get_by_index(1);
+	iface1 = net_if_get_by_index(1);
+	iface2 = net_if_get_by_index(2);
 
-	((struct net_if_test *)net_if_get_device(iface1)->driver_data)->idx = 0U;
-	((struct net_if_test *)net_if_get_device(iface2)->driver_data)->idx = 1U;
+	((struct net_if_test *)net_if_get_device(iface1)->driver_data)->idx =
+		net_if_get_by_iface(iface1);
+	((struct net_if_test *)net_if_get_device(iface2)->driver_data)->idx =
+		net_if_get_by_iface(iface2);
 
 	idx = net_if_get_by_iface(iface1);
-	zassert_equal(idx, 0, "Invalid index iface1");
+	zassert_equal(idx, 1, "Invalid index iface1");
 
 	idx = net_if_get_by_iface(iface2);
-	zassert_equal(idx, 1, "Invalid index iface2");
+	zassert_equal(idx, 2, "Invalid index iface2");
 
 	zassert_not_null(iface1, "Interface 1");
 	zassert_not_null(iface2, "Interface 2");
@@ -1219,36 +1500,33 @@ static void test_setup(void)
 
 static void test_find_last_ipv6_fragment_udp(void)
 {
-	u16_t next_hdr_idx = 0U;
+	u16_t next_hdr_pos = 0U;
 	u16_t last_hdr_pos = 0U;
 	struct net_pkt *pkt;
 	int ret;
 
-	pkt = net_pkt_get_reserve_tx(ALLOC_TIMEOUT);
+	pkt = net_pkt_alloc_with_buffer(iface1, 0, AF_INET6,
+					IPPROTO_UDP, ALLOC_TIMEOUT);
 	zassert_not_null(pkt, "packet");
 
-	net_pkt_set_iface(pkt, iface1);
-	net_pkt_set_family(pkt, AF_INET6);
 	net_pkt_set_ip_hdr_len(pkt, sizeof(struct net_ipv6_hdr));
 	net_pkt_set_ipv6_ext_len(pkt, sizeof(ipv6_udp) -
 				 sizeof(struct net_ipv6_hdr));
 
 	/* Add IPv6 header + UDP */
-	ret = net_pkt_append_all(pkt, sizeof(ipv6_udp), ipv6_udp,
-				 ALLOC_TIMEOUT);
-	zassert_true(ret, "IPv6 header append failed");
+	ret = net_pkt_write(pkt, ipv6_udp, sizeof(ipv6_udp));
 
-	net_pkt_lladdr_clear(pkt);
+	zassert_true(ret == 0, "IPv6 header append failed");
 
-	ret = net_ipv6_find_last_ext_hdr(pkt, &next_hdr_idx, &last_hdr_pos);
+	ret = net_ipv6_find_last_ext_hdr(pkt, &next_hdr_pos, &last_hdr_pos);
 	zassert_equal(ret, 0, "Cannot find last header");
 
-	zassert_equal(next_hdr_idx, 6, "Next header index wrong");
+	zassert_equal(next_hdr_pos, 6, "Next header index wrong");
 	zassert_equal(last_hdr_pos, sizeof(struct net_ipv6_hdr),
 		      "Last header position wrong");
 
 	zassert_equal(NET_IPV6_HDR(pkt)->nexthdr, 0x11, "Invalid next header");
-	zassert_equal(pkt->frags->data[next_hdr_idx], 0x11, "Invalid next "
+	zassert_equal(pkt->buffer->data[next_hdr_pos], 0x11, "Invalid next "
 		      "header");
 
 	net_pkt_unref(pkt);
@@ -1256,36 +1534,33 @@ static void test_find_last_ipv6_fragment_udp(void)
 
 static void test_find_last_ipv6_fragment_hbho_udp(void)
 {
-	u16_t next_hdr_idx = 0U;
+	u16_t next_hdr_pos = 0U;
 	u16_t last_hdr_pos = 0U;
 	struct net_pkt *pkt;
 	int ret;
 
-	pkt = net_pkt_get_reserve_tx(ALLOC_TIMEOUT);
+	pkt = net_pkt_alloc_with_buffer(iface1, sizeof(ipv6_hbho),
+					AF_UNSPEC, 0, ALLOC_TIMEOUT);
 	zassert_not_null(pkt, "packet");
 
-	net_pkt_set_iface(pkt, iface1);
 	net_pkt_set_family(pkt, AF_INET6);
 	net_pkt_set_ip_hdr_len(pkt, sizeof(struct net_ipv6_hdr));
 	net_pkt_set_ipv6_ext_len(pkt, sizeof(ipv6_hbho) -
 				 sizeof(struct net_ipv6_hdr));
 	/* Add IPv6 header + HBH option */
-	ret = net_pkt_append_all(pkt, sizeof(ipv6_hbho), ipv6_hbho,
-				 ALLOC_TIMEOUT);
-	zassert_true(ret, "IPv6 header append failed");
+	ret = net_pkt_write(pkt, ipv6_hbho, sizeof(ipv6_hbho));
+	zassert_true(ret == 0, "IPv6 header append failed");
 
-	net_pkt_lladdr_clear(pkt);
-
-	ret = net_ipv6_find_last_ext_hdr(pkt, &next_hdr_idx, &last_hdr_pos);
+	ret = net_ipv6_find_last_ext_hdr(pkt, &next_hdr_pos, &last_hdr_pos);
 	zassert_equal(ret, 0, "Cannot find last header");
 
-	zassert_equal(next_hdr_idx, sizeof(struct net_ipv6_hdr),
+	zassert_equal(next_hdr_pos, sizeof(struct net_ipv6_hdr),
 		      "Next header index wrong");
 	zassert_equal(last_hdr_pos, sizeof(struct net_ipv6_hdr) + 8,
 		      "Last header position wrong");
 
 	zassert_equal(NET_IPV6_HDR(pkt)->nexthdr, 0, "Invalid next header");
-	zassert_equal(pkt->frags->data[next_hdr_idx], 0x11, "Invalid next "
+	zassert_equal(pkt->buffer->data[next_hdr_pos], 0x11, "Invalid next "
 		      "header");
 
 	net_pkt_unref(pkt);
@@ -1293,163 +1568,163 @@ static void test_find_last_ipv6_fragment_hbho_udp(void)
 
 static void test_find_last_ipv6_fragment_hbho_1(void)
 {
-	u16_t next_hdr_idx = 0U;
+	u16_t next_hdr_pos = 0U;
 	u16_t last_hdr_pos = 0U;
 	struct net_pkt *pkt;
-	struct net_buf *frag;
 	u8_t next_hdr;
 	u8_t last_hdr;
 	int ret;
 
-	pkt = net_pkt_get_reserve_tx(ALLOC_TIMEOUT);
+	pkt = net_pkt_alloc_with_buffer(iface1, sizeof(ipv6_hbho_1),
+					AF_UNSPEC, 0, ALLOC_TIMEOUT);
 	zassert_not_null(pkt, "packet");
 
-	net_pkt_set_iface(pkt, iface1);
 	net_pkt_set_family(pkt, AF_INET6);
 	net_pkt_set_ip_hdr_len(pkt, sizeof(struct net_ipv6_hdr));
 
 	/* Add IPv6 header + HBH option + fragment header */
-	ret = net_pkt_append_all(pkt, sizeof(ipv6_hbho_1), ipv6_hbho_1,
-				 ALLOC_TIMEOUT);
-	zassert_true(ret, "IPv6 header append failed");
+	ret = net_pkt_write(pkt, ipv6_hbho_1, sizeof(ipv6_hbho_1));
+	zassert_true(ret == 0, "IPv6 header append failed");
 
-	net_pkt_lladdr_clear(pkt);
+	net_pkt_set_overwrite(pkt, true);
 
-	ret = net_ipv6_find_last_ext_hdr(pkt, &next_hdr_idx, &last_hdr_pos);
+	ret = net_ipv6_find_last_ext_hdr(pkt, &next_hdr_pos, &last_hdr_pos);
 	zassert_equal(ret, 0, "Cannot find last header");
 
-	zassert_equal(next_hdr_idx, 40, "Next header index wrong");
+	zassert_equal(next_hdr_pos, 40, "Next header position wrong");
 	zassert_equal(last_hdr_pos, 112, "Last header position wrong");
 
-	frag = net_frag_read_u8(pkt->frags, next_hdr_idx, &next_hdr_idx,
-				&next_hdr);
+	net_pkt_cursor_init(pkt);
+	net_pkt_skip(pkt, next_hdr_pos);
+	net_pkt_read_u8(pkt, &next_hdr);
+
 	zassert_equal(next_hdr, 0x11, "Invalid next header");
 
-	frag = net_frag_read_u8(pkt->frags, last_hdr_pos, &last_hdr_pos,
-				&last_hdr);
+	net_pkt_cursor_init(pkt);
+	net_pkt_skip(pkt, last_hdr_pos);
+	net_pkt_read_u8(pkt, &last_hdr);
 
-	zassert_equal(last_hdr, 0x4e, "Invalid next header");
+	zassert_equal(last_hdr, 0x4e, "Invalid last header");
 
 	net_pkt_unref(pkt);
 }
 
 static void test_find_last_ipv6_fragment_hbho_2(void)
 {
-	u16_t next_hdr_idx = 0U;
+	u16_t next_hdr_pos = 0U;
 	u16_t last_hdr_pos = 0U;
 	struct net_pkt *pkt;
-	struct net_buf *frag;
 	u8_t next_hdr;
 	u8_t last_hdr;
 	int ret;
 
-	pkt = net_pkt_get_reserve_tx(ALLOC_TIMEOUT);
+	pkt = net_pkt_alloc_with_buffer(iface1, sizeof(ipv6_hbho_2),
+					AF_UNSPEC, 0, ALLOC_TIMEOUT);
 	zassert_not_null(pkt, "packet");
 
-	net_pkt_set_iface(pkt, iface1);
 	net_pkt_set_family(pkt, AF_INET6);
 	net_pkt_set_ip_hdr_len(pkt, sizeof(struct net_ipv6_hdr));
 
 	/* Add IPv6 header + HBH option + fragment header */
-	ret = net_pkt_append_all(pkt, sizeof(ipv6_hbho_2), ipv6_hbho_2,
-				 ALLOC_TIMEOUT);
-	zassert_true(ret, "IPv6 header append failed");
+	ret = net_pkt_write(pkt, ipv6_hbho_2, sizeof(ipv6_hbho_2));
+	zassert_true(ret == 0, "IPv6 header append failed");
 
-	net_pkt_lladdr_clear(pkt);
+	net_pkt_set_overwrite(pkt, true);
 
-	ret = net_ipv6_find_last_ext_hdr(pkt, &next_hdr_idx, &last_hdr_pos);
+	ret = net_ipv6_find_last_ext_hdr(pkt, &next_hdr_pos, &last_hdr_pos);
 	zassert_equal(ret, 0, "Cannot find last header");
 
-	zassert_equal(next_hdr_idx, 40, "Next header index wrong");
+	zassert_equal(next_hdr_pos, 40, "Next header position wrong");
 	zassert_equal(last_hdr_pos, 144, "Last header position wrong");
 
-	frag = net_frag_read_u8(pkt->frags, next_hdr_idx, &next_hdr_idx,
-				&next_hdr);
+	net_pkt_cursor_init(pkt);
+	net_pkt_skip(pkt, next_hdr_pos);
+	net_pkt_read_u8(pkt, &next_hdr);
 
 	zassert_equal(next_hdr, 0x11, "Invalid next header");
 
-	frag = net_frag_read_u8(pkt->frags, last_hdr_pos, &last_hdr_pos,
-				&last_hdr);
+	net_pkt_cursor_init(pkt);
+	net_pkt_skip(pkt, last_hdr_pos);
+	net_pkt_read_u8(pkt, &last_hdr);
 
-	zassert_equal(last_hdr, 0x4e, "Invalid next header");
+	zassert_equal(last_hdr, 0x4e, "Invalid last header");
 
 	net_pkt_unref(pkt);
 }
 
 static void test_find_last_ipv6_fragment_hbho_3(void)
 {
-	u16_t next_hdr_idx = 0U;
+	u16_t next_hdr_pos = 0U;
 	u16_t last_hdr_pos = 0U;
 	struct net_pkt *pkt;
-	struct net_buf *frag;
 	u8_t next_hdr;
 	u8_t last_hdr;
 	int ret;
 
-	pkt = net_pkt_get_reserve_tx(ALLOC_TIMEOUT);
+	pkt = net_pkt_alloc_with_buffer(iface1, sizeof(ipv6_hbho_3),
+					AF_UNSPEC, 0, ALLOC_TIMEOUT);
 	zassert_not_null(pkt, "packet");
 
-	net_pkt_set_iface(pkt, iface1);
 	net_pkt_set_family(pkt, AF_INET6);
 	net_pkt_set_ip_hdr_len(pkt, sizeof(struct net_ipv6_hdr));
 
 	/* Add IPv6 header + HBH option + fragment header */
-	ret = net_pkt_append_all(pkt, sizeof(ipv6_hbho_3), ipv6_hbho_3,
-				 ALLOC_TIMEOUT);
-	zassert_true(ret, "IPv6 header append failed");
+	ret = net_pkt_write(pkt, ipv6_hbho_3, sizeof(ipv6_hbho_3));
+	zassert_true(ret == 0, "IPv6 header append failed");
 
-	net_pkt_lladdr_clear(pkt);
+	net_pkt_set_overwrite(pkt, true);
 
-	ret = net_ipv6_find_last_ext_hdr(pkt, &next_hdr_idx, &last_hdr_pos);
+	ret = net_ipv6_find_last_ext_hdr(pkt, &next_hdr_pos, &last_hdr_pos);
 	zassert_equal(ret, 0, "Cannot find last header");
 
-	zassert_equal(next_hdr_idx, 40, "Next header index wrong");
+	zassert_equal(next_hdr_pos, 40, "Next header position wrong");
 	zassert_equal(last_hdr_pos, 960, "Last header position wrong");
 
-	frag = net_frag_read_u8(pkt->frags, next_hdr_idx, &next_hdr_idx,
-				&next_hdr);
+	net_pkt_cursor_init(pkt);
+	net_pkt_skip(pkt, next_hdr_pos);
+	net_pkt_read_u8(pkt, &next_hdr);
 
 	zassert_equal(next_hdr, 0x11, "Invalid next header");
 
-	frag = net_frag_read_u8(pkt->frags, last_hdr_pos, &last_hdr_pos,
-				&last_hdr);
+	net_pkt_cursor_init(pkt);
+	net_pkt_skip(pkt, last_hdr_pos);
+	net_pkt_read_u8(pkt, &last_hdr);
 
-	zassert_equal(last_hdr, 0x4e, "Invalid next header");
+	zassert_equal(last_hdr, 0x4e, "Invalid last header");
 
 	net_pkt_unref(pkt);
 }
 
 static void test_find_last_ipv6_fragment_hbho_frag(void)
 {
-	u16_t next_hdr_idx = 0U;
+	u16_t next_hdr_pos = 0U;
 	u16_t last_hdr_pos = 0U;
 	struct net_pkt *pkt;
 	int ret;
 
-	pkt = net_pkt_get_reserve_tx(ALLOC_TIMEOUT);
+	pkt = net_pkt_alloc_with_buffer(iface1, sizeof(ipv6_hbho_frag),
+					AF_UNSPEC, 0, ALLOC_TIMEOUT);
 	zassert_not_null(pkt, "packet");
 
-	net_pkt_set_iface(pkt, iface1);
 	net_pkt_set_family(pkt, AF_INET6);
 	net_pkt_set_ip_hdr_len(pkt, sizeof(struct net_ipv6_hdr));
 
 	/* Add IPv6 header + HBH option + fragment header */
-	ret = net_pkt_append_all(pkt, sizeof(ipv6_hbho_frag), ipv6_hbho_frag,
-				 ALLOC_TIMEOUT);
-	zassert_true(ret, "IPv6 header append failed");
+	ret = net_pkt_write(pkt, ipv6_hbho_frag, sizeof(ipv6_hbho_frag));
+	zassert_true(ret == 0, "IPv6 header append failed");
 
-	net_pkt_lladdr_clear(pkt);
+	net_pkt_set_overwrite(pkt, true);
 
-	ret = net_ipv6_find_last_ext_hdr(pkt, &next_hdr_idx, &last_hdr_pos);
+	ret = net_ipv6_find_last_ext_hdr(pkt, &next_hdr_pos, &last_hdr_pos);
 	zassert_equal(ret, 0, "Cannot find last header");
 
-	zassert_equal(next_hdr_idx, sizeof(struct net_ipv6_hdr) + 8,
-		      "Next header index wrong");
+	zassert_equal(next_hdr_pos, sizeof(struct net_ipv6_hdr) + 8,
+		      "Next header position wrong");
 	zassert_equal(last_hdr_pos, sizeof(struct net_ipv6_hdr) + 8 + 8,
 		      "Last header position wrong");
 
 	zassert_equal(NET_IPV6_HDR(pkt)->nexthdr, 0, "Invalid next header");
-	zassert_equal(pkt->frags->data[next_hdr_idx], 0x11,
+	zassert_equal(pkt->buffer->data[next_hdr_pos], 0x11,
 		      "Invalid next header");
 
 	net_pkt_unref(pkt);
@@ -1457,41 +1732,42 @@ static void test_find_last_ipv6_fragment_hbho_frag(void)
 
 static void test_find_last_ipv6_fragment_hbho_frag_1(void)
 {
-	u16_t next_hdr_idx = 0U;
+	u16_t next_hdr_pos = 0U;
 	u16_t last_hdr_pos = 0U;
 	struct net_pkt *pkt;
-	struct net_buf *frag;
 	u8_t next_hdr;
 	u8_t last_hdr;
 	int ret;
 
-	pkt = net_pkt_get_reserve_tx(ALLOC_TIMEOUT);
+	pkt = net_pkt_alloc_with_buffer(iface1, sizeof(ipv6_hbho_frag_1),
+					AF_UNSPEC, 0, ALLOC_TIMEOUT);
 	zassert_not_null(pkt, "packet");
 
-	net_pkt_set_iface(pkt, iface1);
 	net_pkt_set_family(pkt, AF_INET6);
 	net_pkt_set_ip_hdr_len(pkt, sizeof(struct net_ipv6_hdr));
 
 	/* Add IPv6 header + HBH option + fragment header */
-	ret = net_pkt_append_all(pkt, sizeof(ipv6_hbho_frag_1),
-				 ipv6_hbho_frag_1, ALLOC_TIMEOUT);
-	zassert_true(ret, "IPv6 header append failed");
+	ret = net_pkt_write(pkt, ipv6_hbho_frag_1,
+			    sizeof(ipv6_hbho_frag_1));
+	zassert_true(ret == 0, "IPv6 header append failed");
 
-	net_pkt_lladdr_clear(pkt);
+	net_pkt_set_overwrite(pkt, true);
 
-	ret = net_ipv6_find_last_ext_hdr(pkt, &next_hdr_idx, &last_hdr_pos);
+	ret = net_ipv6_find_last_ext_hdr(pkt, &next_hdr_pos, &last_hdr_pos);
 	zassert_equal(ret, 0, "Cannot find last header");
 
-	zassert_equal(next_hdr_idx, 1072, "Next header index wrong");
+	zassert_equal(next_hdr_pos, 1072, "Next header position wrong");
 	zassert_equal(last_hdr_pos, 1080, "Last header position wrong");
 
-	frag = net_frag_read_u8(pkt->frags, next_hdr_idx, &next_hdr_idx,
-				&next_hdr);
+	net_pkt_cursor_init(pkt);
+	net_pkt_skip(pkt, next_hdr_pos);
+	net_pkt_read_u8(pkt, &next_hdr);
 
 	zassert_equal(next_hdr, 0x3a, "Invalid next header");
 
-	frag = net_frag_read_u8(pkt->frags, last_hdr_pos, &last_hdr_pos,
-				&last_hdr);
+	net_pkt_cursor_init(pkt);
+	net_pkt_skip(pkt, last_hdr_pos);
+	net_pkt_read_u8(pkt, &last_hdr);
 
 	zassert_equal(last_hdr, 0x80, "Invalid next header");
 
@@ -1508,11 +1784,12 @@ static void test_send_ipv6_fragment(void)
 	size_t total_len;
 	int i, ret;
 
-	large_hbho = false;
-
+	test_type = IPV6_SMALL_HBHO_FRAG;
 	pkt_data_len = 0U;
 
-	pkt = net_pkt_get_reserve_tx(ALLOC_TIMEOUT);
+	pkt = net_pkt_alloc_with_buffer(iface1,
+					sizeof(ipv6_hbho) + (count * data_len),
+					AF_UNSPEC, 0, ALLOC_TIMEOUT);
 	zassert_not_null(pkt, "packet");
 
 	net_pkt_set_iface(pkt, iface1);
@@ -1521,17 +1798,14 @@ static void test_send_ipv6_fragment(void)
 	net_pkt_set_ipv6_ext_len(pkt, 8); /* hbho */
 
 	/* Add IPv6 header + HBH option */
-	ret = net_pkt_append_all(pkt, sizeof(ipv6_hbho), ipv6_hbho,
-				 ALLOC_TIMEOUT);
-	zassert_true(ret, "IPv6 header append failed");
-
-	net_pkt_lladdr_clear(pkt);
+	ret = net_pkt_write(pkt, ipv6_hbho, sizeof(ipv6_hbho));
+	zassert_true(ret == 0, "IPv6 header append failed");
 
 	/* Then add some data that is over 1280 bytes long */
 	for (i = 0; i < count; i++) {
-		bool written = net_pkt_append_all(pkt, data_len, (u8_t *)data,
-						  ALLOC_TIMEOUT);
-		zassert_true(written, "Cannot append data");
+		ret = net_pkt_write(pkt, data, data_len);
+
+		zassert_true(ret == 0, "Cannot append data");
 
 		pkt_data_len += data_len;
 	}
@@ -1548,7 +1822,11 @@ static void test_send_ipv6_fragment(void)
 
 	NET_IPV6_HDR(pkt)->len = htons(total_len);
 
-	net_udp_set_chksum(pkt, pkt->frags);
+	net_pkt_cursor_init(pkt);
+	net_pkt_set_overwrite(pkt, true);
+	net_pkt_skip(pkt, net_pkt_ip_hdr_len(pkt) + net_pkt_ipv6_ext_len(pkt));
+
+	net_udp_finalize(pkt);
 
 	test_failed = false;
 
@@ -1571,24 +1849,69 @@ static void test_send_ipv6_fragment_large_hbho(void)
 	int ret;
 
 	frag_count = 0;
-	large_hbho = true;
 	pkt_data_len = 416U;
+	test_type = IPV6_LARGE_HBHO_FRAG;
 
-	pkt = net_pkt_get_reserve_tx(ALLOC_TIMEOUT);
+	pkt = net_pkt_alloc_with_buffer(iface1, sizeof(ipv6_large_hbho),
+					AF_UNSPEC, 0, ALLOC_TIMEOUT);
 	zassert_not_null(pkt, "packet");
 
-	net_pkt_set_iface(pkt, iface1);
 	net_pkt_set_family(pkt, AF_INET6);
 	net_pkt_set_ip_hdr_len(pkt, sizeof(struct net_ipv6_hdr));
 	net_pkt_set_ipv6_ext_len(pkt, 1032); /* hbho */
 
-	ret = net_pkt_append_all(pkt, sizeof(ipv6_large_hbho),
-				 ipv6_large_hbho, ALLOC_TIMEOUT);
-	zassert_true(ret, "IPv6 header append failed");
+	ret = net_pkt_write(pkt, ipv6_large_hbho, sizeof(ipv6_large_hbho));
+	zassert_true(ret == 0, "IPv6 header append failed");
 
-	net_pkt_lladdr_clear(pkt);
+	net_pkt_set_overwrite(pkt, true);
 
 	total_len = net_pkt_get_len(pkt) - sizeof(struct net_ipv6_hdr);
+
+	DBG("Sending %zd bytes of which ext %d and data %d bytes\n",
+	    total_len, net_pkt_ipv6_ext_len(pkt), pkt_data_len);
+
+	test_failed = false;
+
+	ret = net_send_data(pkt);
+	if (ret < 0) {
+		DBG("Cannot send test packet (%d)\n", ret);
+		zassert_equal(ret, 0, "Cannot send");
+	}
+
+	if (k_sem_take(&wait_data, WAIT_TIME)) {
+		DBG("Timeout while waiting interface data\n");
+		zassert_equal(ret, 0, "Timeout");
+	}
+}
+
+static void test_send_ipv6_fragment_without_hbho(void)
+{
+	struct net_pkt *pkt;
+	size_t total_len;
+	int ret;
+
+	frag_count = 0;
+	pkt_data_len = sizeof(ipv6_frag_wo_hbho) -
+			sizeof(struct net_ipv6_hdr) -
+			NET_IPV6_FRAGH_LEN;
+	test_type = IPV6_WITHOUT_HBHO_FRAG;
+
+	pkt = net_pkt_alloc_with_buffer(iface1, sizeof(ipv6_frag_wo_hbho),
+					AF_UNSPEC, 0, ALLOC_TIMEOUT);
+	zassert_not_null(pkt, "packet");
+
+	net_pkt_set_family(pkt, AF_INET6);
+	net_pkt_set_ip_hdr_len(pkt, sizeof(struct net_ipv6_hdr));
+	net_pkt_set_ipv6_ext_len(pkt, NET_IPV6_FRAGH_LEN); /* without hbho*/
+
+	ret = net_pkt_write(pkt, ipv6_frag_wo_hbho,
+			    sizeof(ipv6_frag_wo_hbho));
+	zassert_true(ret == 0, "IPv6 header append failed");
+
+	net_pkt_set_overwrite(pkt, true);
+
+	total_len = net_pkt_get_len(pkt) - sizeof(struct net_ipv6_hdr) -
+		    NET_IPV6_FRAGH_LEN;
 
 	DBG("Sending %zd bytes of which ext %d and data %d bytes\n",
 	    total_len, net_pkt_ipv6_ext_len(pkt), pkt_data_len);
@@ -1629,6 +1952,7 @@ void test_main(void)
 				test_find_last_ipv6_fragment_hbho_frag_1),
 			 ztest_unit_test(test_send_ipv6_fragment),
 			 ztest_unit_test(test_send_ipv6_fragment_large_hbho),
+			 ztest_unit_test(test_send_ipv6_fragment_without_hbho),
 			 ztest_unit_test(test_recv_ipv6_fragment)
 			 );
 

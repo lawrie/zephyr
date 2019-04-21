@@ -4,14 +4,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+#include <ctype.h>
 #include "shell_ops.h"
 
 void shell_op_cursor_vert_move(const struct shell *shell, s32_t delta)
 {
 	if (delta != 0) {
 		shell_raw_fprintf(shell->fprintf_ctx, "\033[%d%c",
-				delta > 0 ? delta : -delta,
-				delta > 0 ? 'A' : 'B');
+				  delta > 0 ? delta : -delta,
+				  delta > 0 ? 'A' : 'B');
 	}
 }
 
@@ -19,8 +20,8 @@ void shell_op_cursor_horiz_move(const struct shell *shell, s32_t delta)
 {
 	if (delta != 0) {
 		shell_raw_fprintf(shell->fprintf_ctx, "\033[%d%c",
-				delta > 0 ? delta : -delta,
-				delta > 0 ? 'C' : 'D');
+				  delta > 0 ? delta : -delta,
+				  delta > 0 ? 'C' : 'D');
 	}
 }
 
@@ -29,15 +30,15 @@ void shell_op_cursor_horiz_move(const struct shell *shell, s32_t delta)
  */
 static inline bool full_line_cmd(const struct shell *shell)
 {
-	return ((shell->ctx->cmd_buff_len + shell_strlen(shell->prompt))
-			% shell->ctx->vt100_ctx.cons.terminal_wid == 0);
+	return ((shell->ctx->cmd_buff_len + shell_strlen(shell->ctx->prompt))
+			% shell->ctx->vt100_ctx.cons.terminal_wid == 0U);
 }
 
 /* Function returns true if cursor is at beginning of an empty line. */
 bool shell_cursor_in_empty_line(const struct shell *shell)
 {
-	return ((shell->ctx->cmd_buff_pos + shell_strlen(shell->prompt))
-			% shell->ctx->vt100_ctx.cons.terminal_wid == 0);
+	return ((shell->ctx->cmd_buff_pos + shell_strlen(shell->ctx->prompt))
+			% shell->ctx->vt100_ctx.cons.terminal_wid == 0U);
 }
 
 void shell_op_cond_next_line(const struct shell *shell)
@@ -97,6 +98,51 @@ void shell_op_cursor_move(const struct shell *shell, s16_t val)
 	shell->ctx->cmd_buff_pos = new_pos;
 }
 
+static u16_t shift_calc(const char *str, u16_t pos, u16_t len, s16_t sign)
+{
+	bool found = false;
+	u16_t ret = 0U;
+	u16_t idx;
+
+	while (1) {
+		idx = pos + ret * sign;
+		if (((idx == 0U) && (sign < 0)) ||
+		    ((idx == len) && (sign > 0))) {
+			break;
+		}
+		if (isalnum((int)str[idx]) != 0) {
+			found = true;
+		} else {
+			if (found) {
+				break;
+			}
+		}
+		ret++;
+	}
+
+	return ret;
+}
+
+void shell_op_cursor_word_move(const struct shell *shell, s16_t val)
+{
+	s16_t shift;
+	s16_t sign;
+
+	if (val < 0) {
+		val = -val;
+		sign = -1;
+	} else {
+		sign = 1;
+	}
+
+	while (val--) {
+		shift = shift_calc(shell->ctx->cmd_buff,
+				   shell->ctx->cmd_buff_pos,
+				   shell->ctx->cmd_buff_len, sign);
+		shell_op_cursor_move(shell, sign * shift);
+	}
+}
+
 void shell_op_word_remove(const struct shell *shell)
 {
 	char *str = &shell->ctx->cmd_buff[shell->ctx->cmd_buff_pos - 1];
@@ -132,7 +178,7 @@ void shell_op_word_remove(const struct shell *shell)
 	/* Update display. */
 	shell_op_cursor_move(shell, -chars_to_delete);
 	cursor_save(shell);
-	shell_fprintf(shell, SHELL_NORMAL, "%s", str + 1);
+	shell_internal_fprintf(shell, SHELL_NORMAL, "%s", str + 1);
 	clear_eos(shell);
 	cursor_restore(shell);
 }
@@ -177,8 +223,8 @@ static void reprint_from_cursor(const struct shell *shell, u16_t diff,
 		clear_eos(shell);
 	}
 
-	shell_fprintf(shell, SHELL_NORMAL, "%s",
-			&shell->ctx->cmd_buff[shell->ctx->cmd_buff_pos]);
+	shell_internal_fprintf(shell, SHELL_NORMAL, "%s",
+		      &shell->ctx->cmd_buff[shell->ctx->cmd_buff_pos]);
 	shell->ctx->cmd_buff_pos = shell->ctx->cmd_buff_len;
 
 	if (full_line_cmd(shell)) {
@@ -212,9 +258,14 @@ static void data_insert(const struct shell *shell, const char *data, u16_t len)
 	reprint_from_cursor(shell, after, false);
 }
 
-void char_replace(const struct shell *shell, char data)
+static void char_replace(const struct shell *shell, char data)
 {
 	shell->ctx->cmd_buff[shell->ctx->cmd_buff_pos++] = data;
+
+	if (!flag_echo_get(shell)) {
+		return;
+	}
+
 	shell_raw_fprintf(shell->fprintf_ctx, "%c", data);
 	if (shell_cursor_in_empty_line(shell)) {
 		cursor_next_line_move(shell);
@@ -247,13 +298,21 @@ void shell_op_char_delete(const struct shell *shell)
 	u16_t diff = shell->ctx->cmd_buff_len - shell->ctx->cmd_buff_pos;
 	char *str = &shell->ctx->cmd_buff[shell->ctx->cmd_buff_pos];
 
-	if (diff == 0) {
+	if (diff == 0U) {
 		return;
 	}
 
 	memmove(str, str + 1, diff);
 	--shell->ctx->cmd_buff_len;
 	reprint_from_cursor(shell, --diff, true);
+}
+
+void shell_op_delete_from_cursor(const struct shell *shell)
+{
+	shell->ctx->cmd_buff_len = shell->ctx->cmd_buff_pos;
+	shell->ctx->cmd_buff[shell->ctx->cmd_buff_pos] = '\0';
+
+	clear_eos(shell);
 }
 
 void shell_op_completion_insert(const struct shell *shell,
@@ -268,10 +327,31 @@ void shell_cmd_line_erase(const struct shell *shell)
 	shell_multiline_data_calc(&shell->ctx->vt100_ctx.cons,
 				  shell->ctx->cmd_buff_pos,
 				  shell->ctx->cmd_buff_len);
-	shell_op_cursor_horiz_move(shell, -shell->ctx->vt100_ctx.cons.cur_x);
+	shell_op_cursor_horiz_move(shell,
+				   -(shell->ctx->vt100_ctx.cons.cur_x - 1));
 	shell_op_cursor_vert_move(shell, shell->ctx->vt100_ctx.cons.cur_y - 1);
 
 	clear_eos(shell);
+}
+
+static void print_prompt(const struct shell *shell)
+{
+	shell_internal_fprintf(shell, SHELL_INFO, "%s", shell->ctx->prompt);
+}
+
+void shell_print_cmd(const struct shell *shell)
+{
+	shell_raw_fprintf(shell->fprintf_ctx, "%s", shell->ctx->cmd_buff);
+}
+
+void shell_print_prompt_and_cmd(const struct shell *shell)
+{
+	print_prompt(shell);
+
+	if (flag_echo_get(shell)) {
+		shell_print_cmd(shell);
+		shell_op_cursor_position_synchronize(shell);
+	}
 }
 
 static void shell_pend_on_txdone(const struct shell *shell)
@@ -362,4 +442,41 @@ void shell_vt100_colors_restore(const struct shell *shell,
 {
 	shell_vt100_color_set(shell, color->col);
 	vt100_bgcolor_set(shell, color->bgcol);
+}
+
+void shell_internal_vfprintf(const struct shell *shell,
+			     enum shell_vt100_color color, const char *fmt,
+			     va_list args)
+{
+	if (IS_ENABLED(CONFIG_SHELL_VT100_COLORS) &&
+	    shell->ctx->internal.flags.use_colors &&
+	    (color != shell->ctx->vt100_ctx.col.col)) {
+		struct shell_vt100_colors col;
+
+		shell_vt100_colors_store(shell, &col);
+		shell_vt100_color_set(shell, color);
+
+		shell_fprintf_fmt(shell->fprintf_ctx, fmt, args);
+
+		shell_vt100_colors_restore(shell, &col);
+	} else {
+		shell_fprintf_fmt(shell->fprintf_ctx, fmt, args);
+	}
+}
+
+void shell_internal_fprintf(const struct shell *shell,
+			    enum shell_vt100_color color,
+			    const char *fmt, ...)
+{
+	__ASSERT_NO_MSG(shell);
+	__ASSERT(!k_is_in_isr(), "Thread context required.");
+	__ASSERT_NO_MSG(shell->ctx);
+	__ASSERT_NO_MSG(shell->fprintf_ctx);
+	__ASSERT_NO_MSG(fmt);
+
+	va_list args = { 0 };
+
+	va_start(args, fmt);
+	shell_internal_vfprintf(shell, color, fmt, args);
+	va_end(args);
 }

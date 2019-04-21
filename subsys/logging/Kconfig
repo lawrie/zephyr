@@ -3,136 +3,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-menu "Logging Options"
 
-config SYS_LOG
-	bool "Enable Logging"
-	depends on PRINTK
-	help
-	  Global switch for logging, when turned off log calls will not be
-	  executed.
-
-config SYS_LOG_SHOW_TAGS
-	bool "Prepend level tags to logs"
-	depends on SYS_LOG
-	default y
-	help
-	  Prefixes all log lines with an identifier to the log level submitted in
-	  the C code.
-
-config SYS_LOG_SHOW_COLOR
-	bool "Use colored logs"
-	depends on SYS_LOG
-	help
-	  Use color in the logs. This requires an ANSI capable terminal.
-
-config SYS_LOG_DEFAULT_LEVEL
-	int "Default log level"
-	depends on SYS_LOG
-	default 0
-	range 0 4
-	help
-	  Sets log level for modules which don't specify it explicitly. When
-	  set to 0 it means log wont be activated for those modules.
-	  Levels are:
-	  0 OFF, do not write by default
-	  1 ERROR, default to only write SYS_LOG_ERR
-	  2 WARNING, default to write SYS_LOG_WRN in addition to previous level
-	  3 INFO, default to write SYS_LOG_INF in addition to previous levels
-	  4 DEBUG, default to write SYS_LOG_DBG in addition to previous levels
-
-config SYS_LOG_OVERRIDE_LEVEL
-	int "Override lowest log level"
-	depends on SYS_LOG
-	default 0
-	range 0 4
-	help
-	  Forces a minimum log level for all modules. Modules use their
-	  specified level if it is greater than this option, otherwise they use
-	  the level specified by this option instead of their default or
-	  whatever was manually set.
-	  Levels are:
-	  0 OFF, do not override
-	  1 ERROR, override to write SYS_LOG_ERR
-	  2 WARNING, override to write SYS_LOG_WRN in addition to previous level
-	  3 INFO, override to write SYS_LOG_INF in addition to previous levels
-	  4 DEBUG, override to write SYS_LOG_DBG in addition to previous levels
-
-config SYS_LOG_EXT_HOOK
-	bool "Use external hook function for logging"
-	depends on SYS_LOG
-	help
-	  Use external hook function for logging.
-
-config SYS_LOG_BACKEND_NET
-	bool "Networking syslog backend"
-	depends on SYS_LOG && NETWORKING
-	select SYS_LOG_EXT_HOOK
-	select NET_CONTEXT_NET_PKT_POOL
-	help
-	  Send syslog messages to network server.
-	  See RFC 5424 (syslog protocol) and RFC 5426 (syslog over UDP)
-	  specifications for details.
-
-if SYS_LOG_BACKEND_NET
-
-config SYS_LOG_BACKEND_NET_SERVER
-	string "Syslog server IP address"
-	help
-	  This can be either IPv4 or IPv6 address.
-	  Server listen UDP port number can be configured here too.
-	  Following syntax is supported:
-	  192.0.2.1:514
-	  192.0.2.42
-	  [2001:db8::1]:514
-	  [2001:db8::2]
-	  2001:db::42
-
-config SYS_LOG_BACKEND_NET_MAX_BUF
-	int "How many network buffers to allocate for sending messages"
-	range 3 256
-	default 3
-	help
-	  Each syslog message will occupy one network buffer.
-
-config SYS_LOG_BACKEND_NET_MAX_BUF_SIZE
-	int "Max syslog message size"
-	range 64 1180
-	default 256
-	help
-	  As each syslog message needs to fit to UDP packet, set this value
-	  so that messages are not truncated.
-	  The RFC 5426 recommends that for IPv4 the size is 480 octets and for
-	  IPv6 the size is 1180 octets. As each buffer will use RAM, the value
-	  should be selected so that typical messages will fit the buffer.
-	  The total allocated memory will be
-	  SYS_LOG_BACKEND_NET_MAX_BUF * SYS_LOG_BACKEND_NET_MAX_BUF_SIZE
-
-endif
-
-config LOG
-	bool "Enable Logger"
+menuconfig LOG
+	bool "Logging"
 	help
 	  Global switch for the logger, when turned off log calls will not be
 	  compiled in.
 
 if LOG
+
 config LOG_RUNTIME_FILTERING
 	bool "Enable runtime reconfiguration of the logger"
 	help
 	  Allow runtime configuration of maximal, independent severity
 	  level for instance.
-
-choice
-	prompt "Log full strategy"
-
-config LOG_MODE_OVERFLOW
-	bool "Oldest logs are discarded"
-
-config LOG_MODE_NO_OVERFLOW
-	bool "New logs are dropped"
-
-endchoice
 
 config LOG_DEFAULT_LEVEL
 	int "Default log level"
@@ -208,20 +92,42 @@ config LOG_PRINTK
 config LOG_PRINTK_MAX_STRING_LENGTH
 	int "Maximum string length supported by LOG_PRINTK"
 	depends on LOG_PRINTK
+	depends on !LOG_IMMEDIATE
 	default 128
 	help
 	  Array is allocated on the stack.
 
-config LOG_INPLACE_PROCESS
-	bool "Enable in place processing"
+config LOG_IMMEDIATE
+	bool "Enable synchronous processing"
 	help
 	  When enabled log is processed in the context of the call. It impacts
 	  performance of the system since time consuming operations are
 	  performed in the context of the log entry (e.g. high priority
-	  interrupt). When enabled LOG_BUFFER_SIZE can be reduced. Logger
-	  backends must support exclusive access to work flawlessly in that mode
-	  because one log operation can be interrupted by another one in higher
-	  priority context.
+	  interrupt).Logger backends must support exclusive access to work
+	  flawlessly in that mode because one log operation can be interrupted
+	  by another one in the higher priority context.
+
+config LOG_ENABLE_FANCY_OUTPUT_FORMATTING
+	depends on !NEWLIB_LIBC && !ARCH_POSIX
+	bool "Format strings with minimal libc _prf() instead of _vprintk()"
+	help
+	  Selecting this option will choose more robust _prf() function from
+	  minimal libc for handling format strings instead of the _vprintk()
+	  function. Choosing this option adds around ~3K flash and ~250 bytes on
+	  stack.
+
+if !LOG_IMMEDIATE
+
+choice
+	prompt "Log full strategy"
+
+config LOG_MODE_OVERFLOW
+	bool "Oldest logs are discarded"
+
+config LOG_MODE_NO_OVERFLOW
+	bool "New logs are dropped"
+
+endchoice
 
 config LOG_PROCESS_TRIGGER_THRESHOLD
 	int "Amount of buffered logs which triggers processing thread."
@@ -253,11 +159,14 @@ config LOG_PROCESS_THREAD_SLEEP_MS
 
 config LOG_PROCESS_THREAD_STACK_SIZE
 	int "Stack size for the internal log processing thread"
+	default 2048 if COVERAGE_GCOV
+	default 1024 if NO_OPTIMIZATIONS
+	default 1024 if XTENSA
 	default 768
 	help
 	  Set the internal stack size for log processing thread.
 
-endif
+endif # LOG_PROCESS_THREAD
 
 config LOG_BUFFER_SIZE
 	int "Number of bytes dedicated for the logger internal buffer."
@@ -283,6 +192,8 @@ config LOG_STRDUP_BUF_COUNT
 	  Each entry takes CONFIG_LOG_STRDUP_MAX_STRING bytes of memory plus
 	  some additional fixed overhead.
 
+endif # !LOG_IMMEDIATE
+
 config LOG_DOMAIN_ID
 	int "Domain ID"
 	default 0
@@ -301,6 +212,31 @@ config LOG_BACKEND_UART
 	default y if !SHELL_BACKEND_SERIAL
 	help
 	  When enabled backend is using UART to output logs.
+
+config LOG_BACKEND_SWO
+	bool "Enable Serial Wire Output (SWO) backend"
+	depends on HAS_SWO
+	help
+	  When enabled, backend will use SWO for logging.
+
+if LOG_BACKEND_SWO
+
+config LOG_BACKEND_SWO_FREQ_HZ
+	int "Set SWO output frequency"
+	default 0
+	help
+	  Set SWO output frequency. Value 0 will select maximum frequency
+	  supported by the given MCU. Not all debug probes support high
+	  frequency SWO operation. In this case the frequency has to be set
+	  manually.
+
+	  SWO value defined by this option will be configured at boot. Most SWO
+	  viewer programs will configure SWO frequency when attached to the
+	  debug probe. Such configuration will persist only until the device
+	  reset. To ensure flawless operation the frequency configured here and
+	  by the SWO viewer program has to match.
+
+endif # LOG_BACKEND_SWO
 
 config LOG_BACKEND_RTT
 	bool "Enable Segger J-Link RTT backend"
@@ -343,7 +279,7 @@ config LOG_BACKEND_RTT_MESSAGE_SIZE
 	help
 	  This option defines maximum message size transferable to up-buffer.
 
-endif #LOG_BACKEND_RTT_MODE_DROP
+endif # LOG_BACKEND_RTT_MODE_DROP
 
 if LOG_BACKEND_RTT_MODE_BLOCK
 
@@ -371,7 +307,7 @@ config LOG_BACKEND_RTT_RETRY_DELAY_MS
 	  case of heavy traffic data can be lost and it may be necessary to
 	  increase delay or number of retries.
 
-endif #LOG_BACKEND_RTT_MODE_BLOCK
+endif # LOG_BACKEND_RTT_MODE_BLOCK
 
 config LOG_BACKEND_RTT_BUFFER
 	int "Buffer number used for logger output."
@@ -390,14 +326,38 @@ config LOG_BACKEND_RTT_BUFFER_SIZE
 	  Specify reserved size of up-buffer used for logger output.
 
 endif # LOG_BACKEND_RTT_BUFFER
+
+
+# Enable processing of printk calls using log if terminal buffer is used.
+# Same buffer is used by RTT console. If printk would go through RTT console
+# that will lead to corruption of RTT data which is not protected against being
+# interrupted by an interrupt.
+config LOG_BACKEND_RTT_FORCE_PRINTK
+	bool
+	default y if LOG_BACKEND_RTT_BUFFER = 0
+	select LOG_PRINTK
+
 endif # LOG_BACKEND_RTT
 
 config LOG_BACKEND_NATIVE_POSIX
 	bool "Enable native backend"
 	depends on ARCH_POSIX
-	default n
 	help
 	  Enable backend in native_posix
+
+config LOG_BACKEND_XTENSA_SIM
+	bool "Enable xtensa simulator backend"
+	depends on SOC_XTENSA_SAMPLE_CONTROLLER
+	help
+	  Enable backend in xtensa simulator
+
+config LOG_BACKEND_XTENSA_OUTPUT_BUFFER_SIZE
+	int "Size of the output buffer"
+	default 16
+	depends on LOG_BACKEND_XTENSA_SIM
+	help
+	  Buffer is used by log_output module for preparing output data (e.g.
+	  string formatting).
 
 config LOG_BACKEND_NET
 	bool "Enable networking backend"
@@ -448,17 +408,18 @@ endif # LOG_BACKEND_NET
 
 config LOG_BACKEND_SHOW_COLOR
 	bool "Enable colors in the backend"
-	depends on LOG_BACKEND_UART || LOG_BACKEND_NATIVE_POSIX || LOG_BACKEND_RTT
+	depends on LOG_BACKEND_UART || LOG_BACKEND_NATIVE_POSIX || LOG_BACKEND_RTT \
+	           || LOG_BACKEND_SWO || LOG_BACKEND_XTENSA_SIM
 	default y
 	help
 	  When enabled selected backend prints errors in red and warning in yellow.
 
 config LOG_BACKEND_FORMAT_TIMESTAMP
 	bool "Enable timestamp formatting in the backend"
-	depends on LOG_BACKEND_UART || LOG_BACKEND_NATIVE_POSIX || LOG_BACKEND_RTT
+	depends on LOG_BACKEND_UART || LOG_BACKEND_NATIVE_POSIX || LOG_BACKEND_RTT \
+	           || LOG_BACKEND_SWO || LOG_BACKEND_XTENSA_SIM
 	default y
 	help
 	  When enabled timestamp is formatted to hh:mm:ss:ms,us.
 
-endif
-endmenu
+endif # LOG

@@ -7,14 +7,14 @@
 
 #include <ztest.h>
 
-#define STACK_SIZE (256 + CONFIG_TEST_EXTRA_STACKSIZE)
+#define STACK_SIZE (512 + CONFIG_TEST_EXTRA_STACKSIZE)
 K_THREAD_STACK_EXTERN(tstack);
 extern struct k_thread tdata;
 
-static char tp1[8];
-static int tp2 = 100;
-static struct k_sema *tp3;
-static int spawn_prio;
+static ZTEST_BMEM char tp1[8];
+static ZTEST_DMEM int tp2 = 100;
+static ZTEST_BMEM struct k_sema *tp3;
+static ZTEST_BMEM int spawn_prio;
 
 static void thread_entry_params(void *p1, void *p2, void *p3)
 {

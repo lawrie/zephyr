@@ -247,7 +247,7 @@ static u8_t att_mtu_req(struct bt_att *att, struct net_buf *buf)
 	 * A device's Exchange MTU Request shall contain the same MTU as the
 	 * device's Exchange MTU Response (i.e. the MTU shall be symmetric).
 	 */
-	att->chan.rx.mtu = min(mtu_client, mtu_server);
+	att->chan.rx.mtu = MIN(mtu_client, mtu_server);
 	att->chan.tx.mtu = att->chan.rx.mtu;
 
 	BT_DBG("Negotiated MTU %u", att->chan.rx.mtu);
@@ -363,7 +363,7 @@ static u8_t att_mtu_rsp(struct bt_att *att, struct net_buf *buf)
 		return att_handle_rsp(att, NULL, 0, BT_ATT_ERR_INVALID_PDU);
 	}
 
-	att->chan.rx.mtu = min(mtu, BT_ATT_MTU);
+	att->chan.rx.mtu = MIN(mtu, BT_ATT_MTU);
 
 	/* BLUETOOTH SPECIFICATION Version 4.2 [Vol 3, Part F] page 484:
 	 *
@@ -537,7 +537,8 @@ static u8_t find_type_cb(const struct bt_gatt_attr *attr, void *user_data)
 
 	/* Update group end_handle if not a primary service */
 	if (bt_uuid_cmp(attr->uuid, BT_UUID_GATT_PRIMARY)) {
-		if (data->group && attr->handle > data->group->end_handle) {
+		if (data->group &&
+		    attr->handle > sys_le16_to_cpu(data->group->end_handle)) {
 			data->group->end_handle = sys_cpu_to_le16(attr->handle);
 		}
 		return BT_GATT_ITER_CONTINUE;
@@ -624,12 +625,12 @@ static u8_t att_find_type_req(struct bt_att *att, struct net_buf *buf)
 	u16_t start_handle, end_handle, err_handle, type;
 	u8_t *value;
 
-	req = (void *)buf->data;
+	req = net_buf_pull_mem(buf, sizeof(*req));
 
 	start_handle = sys_le16_to_cpu(req->start_handle);
 	end_handle = sys_le16_to_cpu(req->end_handle);
 	type = sys_le16_to_cpu(req->type);
-	value = net_buf_pull(buf, sizeof(*req));
+	value = buf->data;
 
 	BT_DBG("start_handle 0x%04x end_handle 0x%04x type %u", start_handle,
 	       end_handle, type);
@@ -847,11 +848,10 @@ static u8_t att_read_type_req(struct bt_att *att, struct net_buf *buf)
 		return BT_ATT_ERR_INVALID_PDU;
 	}
 
-	req = (void *)buf->data;
+	req = net_buf_pull_mem(buf, sizeof(*req));
 
 	start_handle = sys_le16_to_cpu(req->start_handle);
 	end_handle = sys_le16_to_cpu(req->end_handle);
-	net_buf_pull(buf, sizeof(*req));
 
 	if (!uuid_create(&u.uuid, buf)) {
 		return BT_ATT_ERR_UNLIKELY;
@@ -918,6 +918,10 @@ static u8_t att_read_rsp(struct bt_att *att, u8_t op, u8_t rsp, u16_t handle,
 {
 	struct bt_conn *conn = att->chan.chan.conn;
 	struct read_data data;
+
+	if (!bt_gatt_change_aware(conn, true)) {
+		return BT_ATT_ERR_DB_OUT_OF_SYNC;
+	}
 
 	if (!handle) {
 		return BT_ATT_ERR_INVALID_HANDLE;
@@ -1048,7 +1052,8 @@ static u8_t read_group_cb(const struct bt_gatt_attr *attr, void *user_data)
 	/* Update group end_handle if attribute is not a service */
 	if (bt_uuid_cmp(attr->uuid, BT_UUID_GATT_PRIMARY) &&
 	    bt_uuid_cmp(attr->uuid, BT_UUID_GATT_SECONDARY)) {
-		if (data->group && attr->handle > data->group->end_handle) {
+		if (data->group &&
+		    attr->handle > sys_le16_to_cpu(data->group->end_handle)) {
 			data->group->end_handle = sys_cpu_to_le16(attr->handle);
 		}
 		return BT_GATT_ITER_CONTINUE;
@@ -1149,11 +1154,10 @@ static u8_t att_read_group_req(struct bt_att *att, struct net_buf *buf)
 		return BT_ATT_ERR_INVALID_PDU;
 	}
 
-	req = (void *)buf->data;
+	req = net_buf_pull_mem(buf, sizeof(*req));
 
 	start_handle = sys_le16_to_cpu(req->start_handle);
 	end_handle = sys_le16_to_cpu(req->end_handle);
-	net_buf_pull(buf, sizeof(*req));
 
 	if (!uuid_create(&u.uuid, buf)) {
 		return BT_ATT_ERR_UNLIKELY;
@@ -1232,6 +1236,10 @@ static u8_t att_write_rsp(struct bt_conn *conn, u8_t req, u8_t rsp,
 			  u8_t len)
 {
 	struct write_data data;
+
+	if (!bt_gatt_change_aware(conn, req ? true : false)) {
+		return BT_ATT_ERR_DB_OUT_OF_SYNC;
+	}
 
 	if (!handle) {
 		return BT_ATT_ERR_INVALID_HANDLE;
@@ -1350,6 +1358,10 @@ static u8_t att_prep_write_rsp(struct bt_att *att, u16_t handle, u16_t offset,
 	struct prep_data data;
 	struct bt_att_prepare_write_rsp *rsp;
 
+	if (!bt_gatt_change_aware(conn, true)) {
+		return BT_ATT_ERR_DB_OUT_OF_SYNC;
+	}
+
 	if (!handle) {
 		return BT_ATT_ERR_INVALID_HANDLE;
 	}
@@ -1402,11 +1414,10 @@ static u8_t att_prepare_write_req(struct bt_att *att, struct net_buf *buf)
 	struct bt_att_prepare_write_req *req;
 	u16_t handle, offset;
 
-	req = (void *)buf->data;
+	req = net_buf_pull_mem(buf, sizeof(*req));
 
 	handle = sys_le16_to_cpu(req->handle);
 	offset = sys_le16_to_cpu(req->offset);
-	net_buf_pull(buf, sizeof(*req));
 
 	BT_DBG("handle 0x%04x offset %u", handle, offset);
 
@@ -1884,7 +1895,7 @@ static att_type_t att_op_get_type(u8_t op)
 static int bt_att_recv(struct bt_l2cap_chan *chan, struct net_buf *buf)
 {
 	struct bt_att *att = ATT_CHAN(chan);
-	struct bt_att_hdr *hdr = (void *)buf->data;
+	struct bt_att_hdr *hdr;
 	const struct att_handler *handler;
 	u8_t err;
 	size_t i;
@@ -1894,9 +1905,8 @@ static int bt_att_recv(struct bt_l2cap_chan *chan, struct net_buf *buf)
 		return 0;
 	}
 
+	hdr = net_buf_pull_mem(buf, sizeof(*hdr));
 	BT_DBG("Received ATT code 0x%02x len %u", hdr->code, buf->len);
-
-	net_buf_pull(buf, sizeof(*hdr));
 
 	for (i = 0, handler = NULL; i < ARRAY_SIZE(handlers); i++) {
 		if (hdr->code == handlers[i].op) {
@@ -2070,8 +2080,6 @@ static void bt_att_connected(struct bt_l2cap_chan *chan)
 
 	k_delayed_work_init(&att->timeout_work, att_timeout);
 	sys_slist_init(&att->reqs);
-
-	bt_gatt_connected(ch->chan.conn);
 }
 
 static void bt_att_disconnected(struct bt_l2cap_chan *chan)
@@ -2191,7 +2199,7 @@ u16_t bt_att_get_mtu(struct bt_conn *conn)
 	return att->chan.tx.mtu;
 }
 
-int bt_att_send(struct bt_conn *conn, struct net_buf *buf)
+int bt_att_send(struct bt_conn *conn, struct net_buf *buf, bt_conn_tx_cb_t cb)
 {
 	struct bt_att *att;
 	struct bt_att_hdr *hdr;
@@ -2205,11 +2213,14 @@ int bt_att_send(struct bt_conn *conn, struct net_buf *buf)
 		return -ENOTCONN;
 	}
 
-	k_sem_take(&att->tx_sem, K_FOREVER);
-	if (!att_is_connected(att)) {
-		BT_WARN("Disconnected");
-		k_sem_give(&att->tx_sem);
-		return -ENOTCONN;
+	/* Don't use tx_sem if caller has set it own callback */
+	if (!cb) {
+		k_sem_take(&att->tx_sem, K_FOREVER);
+		if (!att_is_connected(att)) {
+			BT_WARN("Disconnected");
+			k_sem_give(&att->tx_sem);
+			return -ENOTCONN;
+		}
 	}
 
 	hdr = (void *)buf->data;
@@ -2227,7 +2238,7 @@ int bt_att_send(struct bt_conn *conn, struct net_buf *buf)
 		}
 	}
 
-	bt_l2cap_send_cb(conn, BT_L2CAP_CID_ATT, buf, att_cb(buf));
+	bt_l2cap_send_cb(conn, BT_L2CAP_CID_ATT, buf, cb ? cb : att_cb(buf));
 
 	return 0;
 }

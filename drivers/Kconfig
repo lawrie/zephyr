@@ -29,6 +29,8 @@ source "drivers/entropy/Kconfig"
 
 source "drivers/pci/Kconfig"
 
+source "drivers/pcie/Kconfig"
+
 source "drivers/gpio/Kconfig"
 
 source "drivers/interrupt_controller/Kconfig.shared_irq"
@@ -84,5 +86,7 @@ source "drivers/modem/Kconfig"
 source "drivers/audio/Kconfig"
 
 source "drivers/neural_net/Kconfig"
+
+source "drivers/hwinfo/Kconfig"
 
 endmenu

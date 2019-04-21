@@ -58,7 +58,7 @@ PROJECT_LOGO           =
 # entered, it will be relative to the location where doxygen was started. If
 # left blank the current directory will be used.
 
-OUTPUT_DIRECTORY       = @CMAKE_CURRENT_BINARY_DIR@/doxygen/
+OUTPUT_DIRECTORY       = @DOXY_OUT@
 
 # If the CREATE_SUBDIRS tag is set to YES then doxygen will create 4096 sub-
 # directories (in 2 levels) under the output directory of each output format and
@@ -750,6 +750,8 @@ WARN_LOGFILE           =
 # spaces. See also FILE_PATTERNS and EXTENSION_MAPPING
 # Note: If this tag is empty the current directory is searched.
 
+# This MUST be kept in sync with DOXY_SOURCES in doc/CMakeLists.txt
+# for incremental (and faster) builds to work correctly.
 INPUT                  = @ZEPHYR_BASE@/include/ \
                          @ZEPHYR_BASE@/include/misc/ \
                          @ZEPHYR_BASE@/include/arch/x86/ \
@@ -759,9 +761,8 @@ INPUT                  = @ZEPHYR_BASE@/include/ \
                          @ZEPHYR_BASE@/include/arch/arm/cortex_m \
                          @ZEPHYR_BASE@/include/arch/nios2/ \
                          @ZEPHYR_BASE@/lib/libc/minimal/include/ \
-                         @ZEPHYR_BASE@/include/net/coap_sock.h \
                          @ZEPHYR_BASE@/include/net/dns_resolve.h \
-			 @ZEPHYR_BASE@/tests/ztest/include/ \
+			 @ZEPHYR_BASE@/subsys/testsuite/ztest/include/ \
 			 @ZEPHYR_BASE@/tests/kernel/
 
 # This tag can be used to specify the character encoding of the source files
@@ -787,6 +788,8 @@ INPUT_ENCODING         = UTF-8
 # *.m, *.markdown, *.md, *.mm, *.dox, *.py, *.pyw, *.f90, *.f95, *.f03, *.f08,
 # *.f, *.for, *.tcl, *.vhd, *.vhdl, *.ucf and *.qsf.
 
+# This MUST be kept in sync with DOXY_SOURCES in doc/CMakeLists.txt
+# for incremental (and faster) builds to work correctly.
 FILE_PATTERNS          = "*.c" \
                          "*.h" \
                          "*.S"
@@ -808,8 +811,6 @@ EXCLUDE                = @ZEPHYR_BASE@/include/spi_legacy.h \
                          @ZEPHYR_BASE@/include/net/http_legacy.h \
                          @ZEPHYR_BASE@/include/cmsis_rtos_v1/cmsis_os.h \
                          @ZEPHYR_BASE@/include/cmsis_rtos_v2/cmsis_os2.h \
-                         @ZEPHYR_BASE@/include/net/coap.h \
-                         @ZEPHYR_BASE@/include/net/coap_link_format.h \
 
 # The EXCLUDE_SYMLINKS tag can be used to select whether or not files or
 # directories that are symbolic links (a Unix file system feature) are excluded
@@ -1972,7 +1973,12 @@ INCLUDE_FILE_PATTERNS  =
 
 PREDEFINED             = "CONFIG_SYS_CLOCK_EXISTS=y" \
                          "CONFIG_THREAD_MONITOR=y" \
+                         "CONFIG_NET_MGMT_EVENT=y" \
+			 "CONFIG_NET_UDP=y" \
+			 "CONFIG_NET_TCP=y" \
+			 "CONFIG_NET_L2_ETHERNET_MGMT=y" \
                          "CONFIG_THREAD_CUSTOM_DATA=y" \
+			 "CONFIG_SCHED_DEADLINE=y" \
                          "CONFIG_ERRNO=y" \
                          "CONFIG_THREAD_STACK_INFO=y" \
                          "CONFIG_UART_INTERRUPT_DRIVEN=y" \

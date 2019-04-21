@@ -9,35 +9,6 @@
 
 #include "dns_pack.h"
 
-/* This is the label's length octet, see 4.1.2. Question section format */
-#define DNS_LABEL_LEN_SIZE	1
-#define DNS_LABEL_MAX_SIZE	63
-#define DNS_ANSWER_MIN_SIZE	12
-#define DNS_COMMON_UINT_SIZE	2
-
-#define DNS_HEADER_ID_LEN	2
-#define DNS_HEADER_FLAGS_LEN	2
-#define DNS_QTYPE_LEN		2
-#define DNS_QCLASS_LEN		2
-#define DNS_QDCOUNT_LEN		2
-#define DNS_ANCOUNT_LEN		2
-#define DNS_NSCOUNT_LEN		2
-#define DNS_ARCOUNT_LEN		2
-
-#define NS_CMPRSFLGS    0xc0   /* DNS name compression */
-
-/* RFC 1035 '4.1.1. Header section format' defines the following flags:
- * QR, Opcode, AA, TC, RD, RA, Z and RCODE.
- * This implementation only uses RD (Recursion Desired).
- */
-#define DNS_RECURSION		1
-
-/* These two defines represent the 3rd and 4th bytes of the DNS msg header.
- * See RFC 1035, 4.1.1. Header section format.
- */
-#define DNS_FLAGS1		DNS_RECURSION	/* QR, Opcode, AA, and TC = 0 */
-#define DNS_FLAGS2		0		/* RA, Z and RCODE = 0 */
-
 static inline u16_t dns_strlen(const char *str)
 {
 	if (str == NULL) {
@@ -60,7 +31,7 @@ int dns_msg_pack_qname(u16_t *len, u8_t *buf, u16_t size,
 	lb_size = 0U;
 
 	dn_size = dns_strlen(domain_name);
-	if (dn_size == 0) {
+	if (dn_size == 0U) {
 		return -EINVAL;
 	}
 
@@ -73,7 +44,7 @@ int dns_msg_pack_qname(u16_t *len, u8_t *buf, u16_t size,
 		switch (domain_name[i]) {
 		default:
 			buf[lb_index] = domain_name[i];
-			lb_size += 1;
+			lb_size += 1U;
 			break;
 		case '.':
 			buf[lb_start] = lb_size;
@@ -85,7 +56,7 @@ int dns_msg_pack_qname(u16_t *len, u8_t *buf, u16_t size,
 			buf[lb_index] = 0U;
 			break;
 		}
-		lb_index += 1;
+		lb_index += 1U;
 	}
 
 	*len = lb_index;
@@ -400,7 +371,7 @@ int dns_copy_qname(u8_t *buf, u16_t *len, u16_t size,
 		/* The domain name terminates with the zero length octet
 		 * for the null label of the root
 		 */
-		if (lb_size == 0) {
+		if (lb_size == 0U) {
 			rc = 0;
 			break;
 		}

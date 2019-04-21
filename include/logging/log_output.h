@@ -50,7 +50,11 @@ extern "C" {
  * @param length Data length.
  * @param ctx  User context.
  *
- * @return Number of bytes processed.
+ * @return Number of bytes processed, dropped or discarded.
+ *
+ * @note If the log output function cannot process all of the data, it is
+ *       its responsibility to mark them as dropped or discarded by returning
+ *       the corresponding number of bytes dropped or discarded to the caller.
  */
 typedef int (*log_output_func_t)(u8_t *buf, size_t size, void *ctx);
 
@@ -97,6 +101,42 @@ struct log_output {
 void log_output_msg_process(const struct log_output *log_output,
 			    struct log_msg *msg,
 			    u32_t flags);
+
+/** @brief Process log string
+ *
+ * Function is formatting provided string adding optional prefixes and
+ * postfixes.
+ *
+ * @param log_output Pointer to log_output instance.
+ * @param src_level  Log source and level structure.
+ * @param timestamp  Timestamp.
+ * @param fmt        String.
+ * @param ap         String arguments.
+ * @param flags      Optional flags.
+ *
+ */
+void log_output_string(const struct log_output *log_output,
+		       struct log_msg_ids src_level, u32_t timestamp,
+		       const char *fmt, va_list ap, u32_t flags);
+
+/** @brief Process log hexdump
+ *
+ * Function is formatting provided hexdump adding optional prefixes and
+ * postfixes.
+ *
+ * @param log_output Pointer to log_output instance.
+ * @param src_level  Log source and level structure.
+ * @param timestamp  Timestamp.
+ * @param metadata   String.
+ * @param data       Data.
+ * @param length     Data length.
+ * @param flags      Optional flags.
+ *
+ */
+void log_output_hexdump(const struct log_output *log_output,
+			     struct log_msg_ids src_level, u32_t timestamp,
+			     const char *metadata, const u8_t *data,
+			     u32_t length, u32_t flags);
 
 /** @brief Process dropped messages indication.
  *

@@ -126,7 +126,7 @@ static int flash_sam_write_page(struct device *dev, off_t offset,
 	const u32_t *src = data;
 	u32_t *dst = (u32_t *)((u8_t *)CONFIG_FLASH_BASE_ADDRESS + offset);
 
-	LOG_DBG("offset = %x, len = %zu", offset, len);
+	LOG_DBG("offset = %lx, len = %zu", (long)offset, len);
 
 	/* We need to copy the data using 32-bit accesses */
 	for (; len > 0; len -= sizeof(*src)) {
@@ -151,7 +151,7 @@ static int flash_sam_write(struct device *dev, off_t offset,
 	int rc;
 	const u8_t *data8 = data;
 
-	LOG_DBG("offset = %x, len = %zu", offset, len);
+	LOG_DBG("offset = %lx, len = %zu", (long)offset, len);
 
 	/* Check that the offset is within the flash */
 	if (!flash_sam_valid_range(dev, offset, len)) {
@@ -166,10 +166,10 @@ static int flash_sam_write(struct device *dev, off_t offset,
 	 * Check that the offset and length are multiples of the write
 	 * block size.
 	 */
-	if ((offset % FLASH_WRITE_BLOCK_SIZE) != 0) {
+	if ((offset % DT_SOC_NV_FLASH_0_WRITE_BLOCK_SIZE) != 0) {
 		return -EINVAL;
 	}
-	if ((len % FLASH_WRITE_BLOCK_SIZE) != 0) {
+	if ((len % DT_SOC_NV_FLASH_0_WRITE_BLOCK_SIZE) != 0) {
 		return -EINVAL;
 	}
 
@@ -185,7 +185,7 @@ static int flash_sam_write(struct device *dev, off_t offset,
 
 		/* Maximum size without crossing a page */
 		eop_len = -(offset | ~(IFLASH_PAGE_SIZE - 1));
-		write_len = min(len, eop_len);
+		write_len = MIN(len, eop_len);
 
 		rc = flash_sam_write_page(dev, offset, data8, write_len);
 		if (rc < 0) {
@@ -207,7 +207,7 @@ done:
 static int flash_sam_read(struct device *dev, off_t offset, void *data,
 			  size_t len)
 {
-	LOG_DBG("offset = %x, len = %zu", offset, len);
+	LOG_DBG("offset = %lx, len = %zu", (long)offset, len);
 
 	if (!flash_sam_valid_range(dev, offset, len)) {
 		return -EINVAL;
@@ -223,7 +223,7 @@ static int flash_sam_erase_block(struct device *dev, off_t offset)
 {
 	Efc *const efc = DEV_CFG(dev)->regs;
 
-	LOG_DBG("offset = %x", offset);
+	LOG_DBG("offset = %lx", (long)offset);
 
 	efc->EEFC_FCR = EEFC_FCR_FKEY_PASSWD |
 			EEFC_FCR_FARG(flash_sam_get_page(offset) | 2) |
@@ -239,7 +239,7 @@ static int flash_sam_erase(struct device *dev, off_t offset, size_t len)
 	int rc = 0;
 	off_t i;
 
-	LOG_DBG("offset = %x, len = %zu", offset, len);
+	LOG_DBG("offset = %lx, len = %zu", (long)offset, len);
 
 	if (!flash_sam_valid_range(dev, offset, len)) {
 		return -EINVAL;
@@ -253,17 +253,17 @@ static int flash_sam_erase(struct device *dev, off_t offset, size_t len)
 	 * Check that the offset and length are multiples of the write
 	 * erase block size.
 	 */
-	if ((offset % FLASH_ERASE_BLOCK_SIZE) != 0) {
+	if ((offset % DT_SOC_NV_FLASH_0_ERASE_BLOCK_SIZE) != 0) {
 		return -EINVAL;
 	}
-	if ((len % FLASH_ERASE_BLOCK_SIZE) != 0) {
+	if ((len % DT_SOC_NV_FLASH_0_ERASE_BLOCK_SIZE) != 0) {
 		return -EINVAL;
 	}
 
 	flash_sam_sem_take(dev);
 
 	/* Loop through the pages to erase */
-	for (i = offset; i < offset + len; i += FLASH_ERASE_BLOCK_SIZE) {
+	for (i = offset; i < offset + len; i += DT_SOC_NV_FLASH_0_ERASE_BLOCK_SIZE) {
 		rc = flash_sam_erase_block(dev, i);
 		if (rc < 0) {
 			goto done;
@@ -311,8 +311,8 @@ done:
  * Here a page refers to the granularity at which the flash can be erased.
  */
 static const struct flash_pages_layout flash_sam_pages_layout = {
-	.pages_count = (CONFIG_FLASH_SIZE * 1024) / FLASH_ERASE_BLOCK_SIZE,
-	.pages_size = FLASH_ERASE_BLOCK_SIZE,
+	.pages_count = (CONFIG_FLASH_SIZE * 1024) / DT_SOC_NV_FLASH_0_ERASE_BLOCK_SIZE,
+	.pages_size = DT_SOC_NV_FLASH_0_ERASE_BLOCK_SIZE,
 };
 
 void flash_sam_page_layout(struct device *dev,
@@ -341,7 +341,7 @@ static const struct flash_driver_api flash_sam_api = {
 #ifdef CONFIG_FLASH_PAGE_LAYOUT
 	.page_layout = flash_sam_page_layout,
 #endif
-	.write_block_size = FLASH_WRITE_BLOCK_SIZE,
+	.write_block_size = DT_SOC_NV_FLASH_0_WRITE_BLOCK_SIZE,
 };
 
 static const struct flash_sam_dev_cfg flash_sam_cfg = {

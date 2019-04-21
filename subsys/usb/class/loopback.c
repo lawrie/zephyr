@@ -36,7 +36,7 @@ struct usb_loopback_config {
 	struct usb_ep_descriptor if0_in_ep;
 } __packed;
 
-USBD_CLASS_DESCR_DEFINE(primary) struct usb_loopback_config loopback_cfg = {
+USBD_CLASS_DESCR_DEFINE(primary, 0) struct usb_loopback_config loopback_cfg = {
 	/* Interface descriptor 0 */
 	.if0 = {
 		.bLength = sizeof(struct usb_if_descriptor),
@@ -102,9 +102,12 @@ static struct usb_ep_cfg_data ep_cfg[] = {
 };
 /* usb.rst endpoint configuration end */
 
-static void loopback_status_cb(enum usb_dc_status_code status,
+static void loopback_status_cb(struct usb_cfg_data *cfg,
+			       enum usb_dc_status_code status,
 			       const u8_t *param)
 {
+	ARG_UNUSED(cfg);
+
 	switch (status) {
 	case USB_DC_CONFIGURED:
 		loopback_in_cb(ep_cfg[LOOPBACK_IN_EP_IDX].ep_addr, 0);
@@ -158,8 +161,11 @@ static int loopback_vendor_handler(struct usb_setup_packet *setup,
 }
 /* usb.rst vendor handler end */
 
-static void loopback_interface_config(u8_t bInterfaceNumber)
+static void loopback_interface_config(struct usb_desc_header *head,
+				      u8_t bInterfaceNumber)
 {
+	ARG_UNUSED(head);
+
 	loopback_cfg.if0.bInterfaceNumber = bInterfaceNumber;
 }
 

@@ -33,32 +33,21 @@ static struct net_pkt *ipv4_autoconf_prepare_arp(struct net_if *iface)
 {
 	struct net_if_config *cfg = net_if_get_config(iface);
 	struct net_pkt *pkt;
-	struct net_buf *frag;
 
-	pkt = net_pkt_get_reserve_tx(BUF_ALLOC_TIMEOUT);
+	/* We provide AF_UNSPEC to the allocator: this packet does not
+	 * need space for any IPv4 header.
+	 */
+	pkt = net_pkt_alloc_with_buffer(iface, sizeof(struct net_arp_hdr),
+					AF_UNSPEC, 0, BUF_ALLOC_TIMEOUT);
 	if (!pkt) {
-		goto fail;
+		return NULL;
 	}
 
-	frag = net_pkt_get_frag(pkt, BUF_ALLOC_TIMEOUT);
-	if (!frag) {
-		goto fail;
-	}
-
-	net_pkt_frag_add(pkt, frag);
-	net_pkt_set_iface(pkt, iface);
 	net_pkt_set_family(pkt, AF_INET);
 	net_pkt_set_ipv4_auto(pkt, true);
 
 	return net_arp_prepare(pkt, &cfg->ipv4auto.requested_ip,
 			       &cfg->ipv4auto.current_ip);
-
-fail:
-	if (pkt) {
-		net_pkt_unref(pkt);
-	}
-
-	return NULL;
 }
 
 static void ipv4_autoconf_send_probe(struct net_if_ipv4_autoconf *ipv4auto)
@@ -149,7 +138,7 @@ enum net_verdict net_ipv4_autoconf_input(struct net_if *iface,
 		break;
 	case NET_IPV4_AUTOCONF_ANNOUNCE:
 	case NET_IPV4_AUTOCONF_ASSIGNED:
-		if (cfg->ipv4auto.conflict_cnt == 1) {
+		if (cfg->ipv4auto.conflict_cnt == 1U) {
 			/* defend IP */
 			ipv4_autoconf_send_announcement(&cfg->ipv4auto);
 		} else {
@@ -175,12 +164,12 @@ static void ipv4_autoconf_send(struct net_if_ipv4_autoconf *ipv4auto)
 {
 	switch (ipv4auto->state) {
 	case NET_IPV4_AUTOCONF_INIT:
-		ipv4auto->probe_cnt = 0;
-		ipv4auto->announce_cnt = 0;
-		ipv4auto->conflict_cnt = 0;
+		ipv4auto->probe_cnt = 0U;
+		ipv4auto->announce_cnt = 0U;
+		ipv4auto->conflict_cnt = 0U;
 		(void)memset(&ipv4auto->current_ip, 0, sizeof(struct in_addr));
-		ipv4auto->requested_ip.s4_addr[0] = 169;
-		ipv4auto->requested_ip.s4_addr[1] = 254;
+		ipv4auto->requested_ip.s4_addr[0] = 169U;
+		ipv4auto->requested_ip.s4_addr[1] = 254U;
 		ipv4auto->requested_ip.s4_addr[2] = sys_rand32_get() % 254;
 		ipv4auto->requested_ip.s4_addr[3] = sys_rand32_get() % 254;
 
@@ -190,9 +179,9 @@ static void ipv4_autoconf_send(struct net_if_ipv4_autoconf *ipv4auto)
 		ipv4_autoconf_send_probe(ipv4auto);
 		break;
 	case NET_IPV4_AUTOCONF_RENEW:
-		ipv4auto->probe_cnt = 0;
-		ipv4auto->announce_cnt = 0;
-		ipv4auto->conflict_cnt = 0;
+		ipv4auto->probe_cnt = 0U;
+		ipv4auto->announce_cnt = 0U;
+		ipv4auto->conflict_cnt = 0U;
 		(void)memset(&ipv4auto->current_ip, 0, sizeof(struct in_addr));
 		NET_DBG("%s: Starting probe for 169.254.%d.%d", "Renew",
 			ipv4auto->requested_ip.s4_addr[2],

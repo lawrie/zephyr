@@ -22,7 +22,7 @@
 #define _ARC_V2_TMR_CTRL_IP 0x8 /* interrupt pending flag */
 
 /* Minimum cycles in the future to try to program. */
-#define MIN_DELAY 1024
+#define MIN_DELAY 512
 #define COUNTER_MAX 0xffffffff
 #define TIMER_STOPPED 0x0
 #define CYC_PER_TICK (CONFIG_SYS_CLOCK_HW_CYCLES_PER_SEC	\
@@ -48,7 +48,7 @@ static u32_t cycle_count;
  */
 static ALWAYS_INLINE u32_t timer0_count_register_get(void)
 {
-	return _arc_v2_aux_reg_read(_ARC_V2_TMR0_COUNT);
+	return z_arc_v2_aux_reg_read(_ARC_V2_TMR0_COUNT);
 }
 
 /**
@@ -59,7 +59,7 @@ static ALWAYS_INLINE u32_t timer0_count_register_get(void)
  */
 static ALWAYS_INLINE void timer0_count_register_set(u32_t value)
 {
-	_arc_v2_aux_reg_write(_ARC_V2_TMR0_COUNT, value);
+	z_arc_v2_aux_reg_write(_ARC_V2_TMR0_COUNT, value);
 }
 
 /**
@@ -70,7 +70,7 @@ static ALWAYS_INLINE void timer0_count_register_set(u32_t value)
  */
 static ALWAYS_INLINE u32_t timer0_control_register_get(void)
 {
-	return _arc_v2_aux_reg_read(_ARC_V2_TMR0_CONTROL);
+	return z_arc_v2_aux_reg_read(_ARC_V2_TMR0_CONTROL);
 }
 
 /**
@@ -81,7 +81,7 @@ static ALWAYS_INLINE u32_t timer0_control_register_get(void)
  */
 static ALWAYS_INLINE void timer0_control_register_set(u32_t value)
 {
-	_arc_v2_aux_reg_write(_ARC_V2_TMR0_CONTROL, value);
+	z_arc_v2_aux_reg_write(_ARC_V2_TMR0_CONTROL, value);
 }
 
 /**
@@ -92,7 +92,7 @@ static ALWAYS_INLINE void timer0_control_register_set(u32_t value)
  */
 static ALWAYS_INLINE u32_t timer0_limit_register_get(void)
 {
-	return _arc_v2_aux_reg_read(_ARC_V2_TMR0_LIMIT);
+	return z_arc_v2_aux_reg_read(_ARC_V2_TMR0_LIMIT);
 }
 
 /**
@@ -103,7 +103,7 @@ static ALWAYS_INLINE u32_t timer0_limit_register_get(void)
  */
 static ALWAYS_INLINE void timer0_limit_register_set(u32_t count)
 {
-	_arc_v2_aux_reg_write(_ARC_V2_TMR0_LIMIT, count);
+	z_arc_v2_aux_reg_write(_ARC_V2_TMR0_LIMIT, count);
 }
 
 static u32_t elapsed(void)
@@ -129,7 +129,7 @@ static u32_t elapsed(void)
  *
  * @return N/A
  */
-static void _timer_int_handler(void *unused)
+static void timer_int_handler(void *unused)
 {
 	ARG_UNUSED(unused);
 	u32_t dticks;
@@ -160,14 +160,17 @@ int z_clock_driver_init(struct device *device)
 
 	/* ensure that the timer will not generate interrupts */
 	timer0_control_register_set(0);
-	timer0_count_register_set(0);
 
 	last_load = CYC_PER_TICK;
 
 	IRQ_CONNECT(IRQ_TIMER0, CONFIG_ARCV2_TIMER_IRQ_PRIORITY,
-		    _timer_int_handler, NULL, 0);
+		    timer_int_handler, NULL, 0);
 
 	timer0_limit_register_set(last_load - 1);
+#ifdef CONFIG_BOOT_TIME_MEASUREMENT
+	cycle_count = timer0_count_register_get();
+#endif
+	timer0_count_register_set(0);
 	timer0_control_register_set(_ARC_V2_TMR_CTRL_NH | _ARC_V2_TMR_CTRL_IE);
 
 	/* everything has been configured: safe to enable the interrupt */
@@ -194,7 +197,7 @@ void z_clock_set_timeout(s32_t ticks, bool idle)
 #if defined(CONFIG_TICKLESS_KERNEL)
 	u32_t delay;
 
-	ticks = min(MAX_TICKS, max(ticks - 1, 0));
+	ticks = MIN(MAX_TICKS, MAX(ticks - 1, 0));
 
 	/* Desired delay in the future */
 	delay = (ticks == 0) ? MIN_DELAY : ticks * CYC_PER_TICK;
@@ -205,10 +208,16 @@ void z_clock_set_timeout(s32_t ticks, bool idle)
 
 	/* Round delay up to next tick boundary */
 	delay = ((delay + CYC_PER_TICK - 1) / CYC_PER_TICK) * CYC_PER_TICK;
-	last_load = delay;
 
-	timer0_limit_register_set(last_load - 1);
-	timer0_control_register_set(_ARC_V2_TMR_CTRL_NH | _ARC_V2_TMR_CTRL_IE);
+	if (last_load != delay) {
+		if (timer0_control_register_get() & _ARC_V2_TMR_CTRL_IP) {
+			delay -= last_load;
+		}
+		timer0_limit_register_set(delay - 1);
+		last_load = delay;
+		timer0_control_register_set(_ARC_V2_TMR_CTRL_NH |
+							 _ARC_V2_TMR_CTRL_IE);
+	}
 
 	k_spin_unlock(&lock, key);
 #endif
@@ -227,7 +236,7 @@ u32_t z_clock_elapsed(void)
 	return cyc / CYC_PER_TICK;
 }
 
-u32_t _timer_cycle_get_32(void)
+u32_t z_timer_cycle_get_32(void)
 {
 	k_spinlock_key_t key = k_spin_lock(&lock);
 	u32_t ret = elapsed() + cycle_count;

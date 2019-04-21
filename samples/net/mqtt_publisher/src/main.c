@@ -26,6 +26,9 @@ static struct mqtt_client client_ctx;
 
 /* MQTT Broker details. */
 static struct sockaddr_storage broker;
+#if defined(CONFIG_MQTT_LIB_SOCKS)
+static struct sockaddr_storage socks5_proxy;
+#endif
 
 static struct pollfd fds[1];
 static int nfds;
@@ -41,7 +44,7 @@ static bool connected;
 #define APP_PSK_TAG 2
 
 static sec_tag_t m_sec_tags[] = {
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_X509_CRT_PARSE_C) || defined(CONFIG_NET_SOCKETS_OFFLOAD)
 		APP_CA_CERT_TAG,
 #endif
 #if defined(MBEDTLS_KEY_EXCHANGE__SOME__PSK_ENABLED)
@@ -53,7 +56,7 @@ static int tls_init(void)
 {
 	int err = -EINVAL;
 
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_X509_CRT_PARSE_C) || defined(CONFIG_NET_SOCKETS_OFFLOAD)
 	err = tls_credential_add(APP_CA_CERT_TAG, TLS_CREDENTIAL_CA_CERTIFICATE,
 				 ca_certificate, sizeof(ca_certificate));
 	if (err < 0) {
@@ -222,8 +225,8 @@ static int publish(struct mqtt_client *client, enum mqtt_qos qos)
 	param.message.payload.len =
 			strlen(param.message.payload.data);
 	param.message_id = sys_rand32_get();
-	param.dup_flag = 0;
-	param.retain_flag = 0;
+	param.dup_flag = 0U;
+	param.retain_flag = 0U;
 
 	return mqtt_publish(client, &param);
 }
@@ -242,12 +245,28 @@ static void broker_init(void)
 	broker6->sin6_family = AF_INET6;
 	broker6->sin6_port = htons(SERVER_PORT);
 	inet_pton(AF_INET6, SERVER_ADDR, &broker6->sin6_addr);
+
+#if defined(CONFIG_MQTT_LIB_SOCKS)
+	struct sockaddr_in6 *proxy6 = (struct sockaddr_in6 *)&socks5_proxy;
+
+	proxy6->sin6_family = AF_INET6;
+	proxy6->sin6_port = htons(SOCKS5_PROXY_PORT);
+	inet_pton(AF_INET6, SOCKS5_PROXY_ADDR, &proxy6->sin6_addr);
+#endif
 #else
 	struct sockaddr_in *broker4 = (struct sockaddr_in *)&broker;
 
 	broker4->sin_family = AF_INET;
 	broker4->sin_port = htons(SERVER_PORT);
 	inet_pton(AF_INET, SERVER_ADDR, &broker4->sin_addr);
+
+#if defined(CONFIG_MQTT_LIB_SOCKS)
+	struct sockaddr_in *proxy4 = (struct sockaddr_in *)&socks5_proxy;
+
+	proxy4->sin_family = AF_INET;
+	proxy4->sin_port = htons(SOCKS5_PROXY_PORT);
+	inet_pton(AF_INET, SOCKS5_PROXY_ADDR, &proxy4->sin_addr);
+#endif
 #endif
 }
 
@@ -280,16 +299,21 @@ static void client_init(struct mqtt_client *client)
 
 	tls_config->peer_verify = 2;
 	tls_config->cipher_list = NULL;
-	tls_config->seg_tag_list = m_sec_tags;
+	tls_config->sec_tag_list = m_sec_tags;
 	tls_config->sec_tag_count = ARRAY_SIZE(m_sec_tags);
-#if defined(MBEDTLS_X509_CRT_PARSE_C)
+#if defined(MBEDTLS_X509_CRT_PARSE_C) || defined(CONFIG_NET_SOCKETS_OFFLOAD)
 	tls_config->hostname = TLS_SNI_HOSTNAME;
 #else
 	tls_config->hostname = NULL;
 #endif
 
 #else
+#if defined(CONFIG_MQTT_LIB_SOCKS)
+	client->transport.type = MQTT_TRANSPORT_SOCKS;
+	client->transport.socks5.proxy = &socks5_proxy;
+#else
 	client->transport.type = MQTT_TRANSPORT_NON_SECURE;
+#endif
 #endif
 }
 

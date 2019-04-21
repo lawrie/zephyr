@@ -55,7 +55,7 @@
 #include <logging/log.h>
 LOG_MODULE_REGISTER(usb_dc_stm32);
 
-#if defined(DT_USB_BASE_ADDRESS) && defined(CONFIG_USB_HS_BASE_ADDRES)
+#if defined(DT_USB_BASE_ADDRESS) && defined(DT_USB_HS_BASE_ADDRESS)
 #error "Only one interface should be enabled at a time, OTG FS or OTG HS"
 #endif
 
@@ -329,7 +329,7 @@ static u32_t usb_dc_stm32_get_maximum_speed(void)
 			"USB controller will default to its maximum HW "
 			"capability");
 	}
-#endif /* CONFIG_USB_MAX_SPEED */
+#endif /* DT_USB_MAXIMUM_SPEED */
 
 	return speed;
 }
@@ -427,7 +427,7 @@ int usb_dc_attach(void)
 	 * For STM32F0 series SoCs on QFN28 and TSSOP20 packages enable PIN
 	 * pair PA11/12 mapped instead of PA9/10 (e.g. stm32f070x6)
 	 */
-#if defined(CONFIG_SOC_SERIES_STM32F0X) && defined(SYSCFG_CFGR1_PA11_PA12_RMP)
+#if defined(DT_USB_ENABLE_PIN_REMAP)
 	if (LL_APB1_GRP2_IsEnabledClock(LL_APB1_GRP2_PERIPH_SYSCFG)) {
 		LL_SYSCFG_EnablePinRemap();
 	} else {
@@ -557,7 +557,7 @@ int usb_dc_ep_check_cap(const struct usb_dc_ep_cfg_data * const cfg)
 		return -1;
 	}
 
-	if (ep_idx > DT_USB_NUM_BIDIR_ENDPOINTS) {
+	if (ep_idx > (DT_USB_NUM_BIDIR_ENDPOINTS - 1)) {
 		LOG_ERR("endpoint index/address out of range");
 		return -1;
 	}
@@ -747,8 +747,8 @@ int usb_dc_ep_write(const u8_t ep, const u8_t *const data,
 		irq_disable(DT_USB_IRQ);
 	}
 
-	if (ep == EP0_IN && len > MAX_PACKET_SIZE0) {
-		len = MAX_PACKET_SIZE0;
+	if (ep == EP0_IN && len > USB_MAX_CTRL_MPS) {
+		len = USB_MAX_CTRL_MPS;
 	}
 
 	status = HAL_PCD_EP_Transmit(&usb_dc_stm32_state.pcd, ep,
@@ -782,7 +782,14 @@ int usb_dc_ep_read_wait(u8_t ep, u8_t *data, u32_t max_data_len,
 			u32_t *read_bytes)
 {
 	struct usb_dc_stm32_ep_state *ep_state = usb_dc_stm32_get_ep_state(ep);
-	u32_t read_count = ep_state->read_count;
+	u32_t read_count;
+
+	if (!ep_state) {
+		LOG_ERR("Invalid Endpoint %x", ep);
+		return -EINVAL;
+	}
+
+	read_count = ep_state->read_count;
 
 	LOG_DBG("ep 0x%02x, %u bytes, %u+%u, %p", ep, max_data_len,
 		ep_state->read_offset, read_count, data);
@@ -797,7 +804,7 @@ int usb_dc_ep_read_wait(u8_t ep, u8_t *data, u32_t max_data_len,
 	 * previously stored in the buffer.
 	 */
 	if (data) {
-		read_count = min(read_count, max_data_len);
+		read_count = MIN(read_count, max_data_len);
 		memcpy(data, usb_dc_stm32_state.ep_buf[EP_IDX(ep)] +
 		       ep_state->read_offset, read_count);
 		ep_state->read_count -= read_count;
@@ -847,6 +854,17 @@ int usb_dc_ep_read(const u8_t ep, u8_t *const data, const u32_t max_data_len,
 	return 0;
 }
 
+int usb_dc_ep_halt(const u8_t ep)
+{
+	return usb_dc_ep_set_stall(ep);
+}
+
+int usb_dc_ep_flush(const u8_t ep)
+{
+	LOG_ERR("Not implemented");
+
+	return 0;
+}
 
 int usb_dc_ep_mps(const u8_t ep)
 {
@@ -855,15 +873,38 @@ int usb_dc_ep_mps(const u8_t ep)
 	return ep_state->ep_mps;
 }
 
+int usb_dc_detach(void)
+{
+	LOG_ERR("Not implemented");
+
+	return 0;
+}
+
+int usb_dc_reset(void)
+{
+	LOG_ERR("Not implemented");
+
+	return 0;
+}
+
 /* Callbacks from the STM32 Cube HAL code */
 
 void HAL_PCD_ResetCallback(PCD_HandleTypeDef *hpcd)
 {
+	int i;
+
 	LOG_DBG("");
 
 	HAL_PCD_EP_Open(&usb_dc_stm32_state.pcd, EP0_IN, EP0_MPS, EP_TYPE_CTRL);
 	HAL_PCD_EP_Open(&usb_dc_stm32_state.pcd, EP0_OUT, EP0_MPS,
 			EP_TYPE_CTRL);
+
+	/* The DataInCallback will never be called at this point for any pending
+	 * transactions. Reset the IN semaphores to prevent perpetual locked state.
+	 * */
+	for (i = 0; i < DT_USB_NUM_BIDIR_ENDPOINTS; i++) {
+		k_sem_give(&usb_dc_stm32_state.in_ep_state[i].write_sem);
+	}
 
 	if (usb_dc_stm32_state.status_cb) {
 		usb_dc_stm32_state.status_cb(USB_DC_RESET, NULL);
@@ -922,7 +963,7 @@ void HAL_PCD_SetupStageCallback(PCD_HandleTypeDef *hpcd)
 	if (ep_state->cb) {
 		ep_state->cb(EP0_OUT, USB_DC_EP_SETUP);
 
-		if (!(setup->wLength == 0) &&
+		if (!(setup->wLength == 0U) &&
 		    !(REQTYPE_GET_DIR(setup->bmRequestType) ==
 		    REQTYPE_DIR_TO_HOST)) {
 			usb_dc_ep_start_read(EP0_OUT,
@@ -973,18 +1014,18 @@ void HAL_PCDEx_SetConnectionState(PCD_HandleTypeDef *hpcd, uint8_t state)
 	struct device *usb_disconnect;
 
 	usb_disconnect = device_get_binding(
-				DT_USB_DC_STM32_DISCONN_GPIO_PORT_NAME);
+				DT_ST_STM32_USB_0_DISCONNECT_GPIOS_CONTROLLER);
 	gpio_pin_configure(usb_disconnect,
-			   DT_USB_DC_STM32_DISCONN_PIN, GPIO_DIR_OUT);
+			   DT_ST_STM32_USB_0_DISCONNECT_GPIOS_PIN, GPIO_DIR_OUT);
 
 	if (state) {
 		gpio_pin_write(usb_disconnect,
-			       DT_USB_DC_STM32_DISCONN_PIN,
-			       DT_USB_DC_STM32_DISCONN_PIN_LEVEL);
+			       DT_ST_STM32_USB_0_DISCONNECT_GPIOS_PIN,
+			       DT_ST_STM32_USB_0_DISCONNECT_GPIOS_FLAGS);
 	} else {
 		gpio_pin_write(usb_disconnect,
-			       DT_USB_DC_STM32_DISCONN_PIN,
-			       !DT_USB_DC_STM32_DISCONN_PIN_LEVEL);
+			       DT_ST_STM32_USB_0_DISCONNECT_GPIOS_PIN,
+			       !DT_ST_STM32_USB_0_DISCONNECT_GPIOS_FLAGS);
 	}
 }
 #endif /* USB && CONFIG_USB_DC_STM32_DISCONN_ENABLE */

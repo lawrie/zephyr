@@ -21,7 +21,7 @@
 
 _ASM_FILE_PROLOGUE
 
-GTEXT(_ExcExit)
+GTEXT(z_ExcExit)
 GTEXT(_IntExit)
 GDATA(_kernel)
 
@@ -53,7 +53,7 @@ GDATA(_kernel)
 
 SECTION_SUBSEC_FUNC(TEXT, _HandlerModeExit, _IntExit)
 
-/* _IntExit falls through to _ExcExit (they are aliases of each other) */
+/* _IntExit falls through to z_ExcExit (they are aliases of each other) */
 
 /**
  *
@@ -65,14 +65,14 @@ SECTION_SUBSEC_FUNC(TEXT, _HandlerModeExit, _IntExit)
  * @return N/A
  */
 
-SECTION_SUBSEC_FUNC(TEXT, _HandlerModeExit, _ExcExit)
+SECTION_SUBSEC_FUNC(TEXT, _HandlerModeExit, z_ExcExit)
 
 #ifdef CONFIG_PREEMPT_ENABLED
     ldr r0, =_kernel
 
     ldr r1, [r0, #_kernel_offset_to_current]
 
-    ldr r0, [r0, _kernel_offset_to_ready_q_cache]
+    ldr r0, [r0, #_kernel_offset_to_ready_q_cache]
     cmp r0, r1
     beq _EXIT_EXC
 
@@ -87,14 +87,13 @@ _EXIT_EXC:
 #endif /* CONFIG_PREEMPT_ENABLED */
 
 #ifdef CONFIG_STACK_SENTINEL
-    push {lr}
-    bl _check_stack_sentinel
+    push {r0, lr}
+    bl z_check_stack_sentinel
 #if defined(CONFIG_ARMV6_M_ARMV8_M_BASELINE)
-    pop {r0}
-    mov lr, r0
+    pop {r0, r1}
+    mov lr, r1
 #else
-    pop {lr}
+    pop {r0, lr}
 #endif /* CONFIG_ARMV6_M_ARMV8_M_BASELINE */
 #endif /* CONFIG_STACK_SENTINEL */
-
     bx lr

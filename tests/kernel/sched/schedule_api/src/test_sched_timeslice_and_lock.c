@@ -7,13 +7,13 @@
 #include "test_sched.h"
 #define THREADS_NUM     3
 #define DURATION	1
-static K_THREAD_STACK_ARRAY_DEFINE(tstack, THREADS_NUM, STACK_SIZE);
+
+BUILD_ASSERT(THREADS_NUM <= MAX_NUM_THREAD);
 
 static struct thread_data tdata[THREADS_NUM];
 static struct k_thread tthread[THREADS_NUM];
 static int old_prio, init_prio;
 
-K_THREAD_STACK_DEFINE(t_stack, STACK_SIZE);
 struct k_thread t;
 
 K_SEM_DEFINE(pend_sema, 0, 1);
@@ -55,7 +55,7 @@ static void setup_threads(void)
 static void spawn_threads(int sleep_sec)
 {
 	for (int i = 0; i < THREADS_NUM; i++) {
-		tdata[i].tid = k_thread_create(&tthread[i], tstack[i],
+		tdata[i].tid = k_thread_create(&tthread[i], tstacks[i],
 					       STACK_SIZE, thread_entry,
 					       (void *)i, (void *)sleep_sec,
 					       NULL, tdata[i].priority, 0, 0);
@@ -208,7 +208,7 @@ void test_pending_thread_wakeup(void)
 	k_thread_priority_set(k_current_get(), K_PRIO_PREEMPT(1));
 
 	/* Create a thread which waits for semaphore */
-	k_tid_t tid = k_thread_create(&t, t_stack, STACK_SIZE,
+	k_tid_t tid = k_thread_create(&t, tstack, STACK_SIZE,
 				      (k_thread_entry_t)coop_thread,
 				      NULL, NULL, NULL,
 				      K_PRIO_COOP(1), 0, 0);
@@ -239,6 +239,7 @@ void test_pending_thread_wakeup(void)
  */
 void test_time_slicing_preemptible(void)
 {
+#ifdef CONFIG_TIMESLICING
 	/* set current thread to a preemptible priority */
 	init_prio = 0;
 	setup_threads();
@@ -257,6 +258,9 @@ void test_time_slicing_preemptible(void)
 	/* restore environment */
 	k_sched_time_slice_set(0, 0); /* disable time slice */
 	teardown_threads();
+#else /* CONFIG_TIMESLICING */
+	ztest_test_skip();
+#endif /* CONFIG_TIMESLICING */
 }
 
 /**
@@ -274,6 +278,7 @@ void test_time_slicing_preemptible(void)
  */
 void test_time_slicing_disable_preemptible(void)
 {
+#ifdef CONFIG_TIMESLICING
 	/* set current thread to a preemptible priority */
 	init_prio = 0;
 	setup_threads();
@@ -289,6 +294,9 @@ void test_time_slicing_disable_preemptible(void)
 	}
 	/* restore environment */
 	teardown_threads();
+#else /* CONFIG_TIMESLICING */
+	ztest_test_skip();
+#endif /* CONFIG_TIMESLICING */
 }
 
 /**
@@ -368,7 +376,7 @@ void test_unlock_preemptible(void)
  */
 void test_wakeup_expired_timer_thread(void)
 {
-	k_tid_t tid = k_thread_create(&tthread[0], t_stack, STACK_SIZE,
+	k_tid_t tid = k_thread_create(&tthread[0], tstack, STACK_SIZE,
 					thread_handler, NULL, NULL, NULL,
 					K_PRIO_PREEMPT(0), 0, 0);
 	k_sem_take(&timer_sema, K_FOREVER);

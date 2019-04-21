@@ -19,8 +19,8 @@ K_SEM_DEFINE(sync_sem, 0, 1);
 K_SEM_DEFINE(multiple_send_sem, 0, 1);
 
 
-u8_t tx_buffer[PIPE_SIZE];
-u8_t rx_buffer[PIPE_SIZE];
+ZTEST_BMEM u8_t tx_buffer[PIPE_SIZE];
+ZTEST_BMEM u8_t rx_buffer[PIPE_SIZE];
 
 #define TOTAL_ELEMENTS (sizeof(single_elements) / sizeof(struct pipe_sequence))
 #define TOTAL_WAIT_ELEMENTS (sizeof(wait_elements) / \
@@ -40,8 +40,8 @@ u8_t rx_buffer[PIPE_SIZE];
 #define ALL_BYTES (sizeof(tx_buffer))
 
 #define RETURN_SUCCESS  (0)
-#define TIMEOUT_VAL (MSEC(10))
-#define TIMEOUT_200MSEC (MSEC(200))
+#define TIMEOUT_VAL (K_MSEC(10))
+#define TIMEOUT_200MSEC (K_MSEC(200))
 
 /* encompasing structs */
 struct pipe_sequence {
@@ -114,7 +114,7 @@ static struct pipe_sequence timeout_elements[] = {
 	{ PIPE_SIZE + 1, ATLEAST_1, 0, -EAGAIN }
 };
 
-__kernel struct k_thread get_single_tid;
+struct k_thread get_single_tid;
 
 /* Helper functions */
 
@@ -674,8 +674,8 @@ void pipe_put_get_timeout(void)
 }
 
 /******************************************************************************/
-bool valid_fault;
-void _SysFatalErrorHandler(unsigned int reason, const NANO_ESF *pEsf)
+ZTEST_BMEM bool valid_fault;
+void z_SysFatalErrorHandler(unsigned int reason, const NANO_ESF *pEsf)
 {
 	printk("Caught system error -- reason %d\n", reason);
 	if (valid_fault) {

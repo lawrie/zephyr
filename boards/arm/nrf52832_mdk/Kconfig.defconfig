@@ -16,4 +16,14 @@ config I2C_0
 
 endif # I2C
 
+if PWM
+
+config PWM_0
+	default y
+
+endif # PWM
+
+config BT_CTLR
+	default BT
+
 endif # BOARD_NRF52832_MDK

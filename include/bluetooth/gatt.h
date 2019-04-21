@@ -107,6 +107,9 @@ struct bt_gatt_attr {
 
 	/** Attribute read callback
 	 *
+	 *  The callback can also be used locally to read the contents of the
+	 *  attribute in which case no connection will be set.
+	 *
 	 *  @param conn   The connection that is requesting to read
 	 *  @param attr   The attribute that's being read
 	 *  @param buf    Buffer to place the read result in
@@ -122,6 +125,9 @@ struct bt_gatt_attr {
 					u16_t offset);
 
 	/** Attribute write callback
+	 *
+	 *  The callback can also be used locally to read the contents of the
+	 *  attribute in which case no connection will be set.
 	 *
 	 *  @param conn   The connection that is requesting to write
 	 *  @param attr   The attribute that's being written
@@ -270,7 +276,9 @@ struct bt_gatt_ccc {
 struct bt_gatt_cpf {
 	/** Format of the value of the characteristic */
 	u8_t format;
-	/** Exponent field to determine how the value of this characteristic is further formatted */
+	/** Exponent field to determine how the value of this characteristic is
+	 * further formatted
+	 */
 	s8_t exponent;
 	/** Unit of the characteristic */
 	u16_t unit;
@@ -509,6 +517,11 @@ struct _bt_gatt_ccc {
 	u16_t			value;
 	void			(*cfg_changed)(const struct bt_gatt_attr *attr,
 					       u16_t value);
+	bool			(*cfg_write)(struct bt_conn *conn,
+					     const struct bt_gatt_attr *attr,
+					     u16_t value);
+	bool			(*cfg_match)(struct bt_conn *conn,
+					     const struct bt_gatt_attr *attr);
 };
 
 /** @brief Read Client Characteristic Configuration Attribute helper.
@@ -549,6 +562,26 @@ ssize_t bt_gatt_attr_write_ccc(struct bt_conn *conn,
 			       const struct bt_gatt_attr *attr, const void *buf,
 			       u16_t len, u16_t offset, u8_t flags);
 
+/** @def BT_GATT_CCC_MANAGED
+ *  @brief Managed Client Characteristic Configuration Declaration Macro.
+ *
+ *  Helper macro to declare a Managed CCC attribute.
+ *
+ *  @param _cfg Initial configuration.
+ *  @param _changed Configuration changed callback.
+ *  @param _write Configuration write callback.
+ *  @param _match Configuration match callback.
+ */
+#define BT_GATT_CCC_MANAGED(_cfg, _changed, _write, _match)		\
+	BT_GATT_ATTRIBUTE(BT_UUID_GATT_CCC,				\
+			BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,		\
+			bt_gatt_attr_read_ccc, bt_gatt_attr_write_ccc,	\
+			(&(struct _bt_gatt_ccc) { .cfg = _cfg,		\
+					       .cfg_len = ARRAY_SIZE(_cfg), \
+					       .cfg_changed = _changed, \
+					       .cfg_write = _write, \
+					       .cfg_match = _match }))
+
 /** @def BT_GATT_CCC
  *  @brief Client Characteristic Configuration Declaration Macro.
  *
@@ -558,12 +591,7 @@ ssize_t bt_gatt_attr_write_ccc(struct bt_conn *conn,
  *  @param _cfg_changed Configuration changed callback.
  */
 #define BT_GATT_CCC(_cfg, _cfg_changed)					\
-	BT_GATT_ATTRIBUTE(BT_UUID_GATT_CCC,				\
-			BT_GATT_PERM_READ | BT_GATT_PERM_WRITE,		\
-			bt_gatt_attr_read_ccc, bt_gatt_attr_write_ccc,	\
-			(&(struct _bt_gatt_ccc) { .cfg = _cfg,		\
-					       .cfg_len = ARRAY_SIZE(_cfg), \
-					       .cfg_changed = _cfg_changed, }))
+	BT_GATT_CCC_MANAGED(_cfg, _cfg_changed, NULL, NULL)
 
 /** @brief Read Characteristic Extended Properties Attribute helper
  *
@@ -599,7 +627,8 @@ ssize_t bt_gatt_attr_read_cep(struct bt_conn *conn,
  *
  *  Read CUD attribute value from local database storing the result into buffer
  *  after encoding it.
- *  NOTE: Only use this with attributes which user_data is a NULL-terminated C string.
+ *  NOTE: Only use this with attributes which user_data is a NULL-terminated C
+ *  string.
  *
  *  @param conn Connection object
  *  @param attr Attribute to read
@@ -694,7 +723,7 @@ ssize_t bt_gatt_attr_read_cpf(struct bt_conn *conn,
  *
  *  @param conn Connection object.
  */
-typedef void (*bt_gatt_notify_complete_func_t) (struct bt_conn *conn);
+typedef void (*bt_gatt_complete_func_t) (struct bt_conn *conn);
 
 /** @brief Notify attribute value change with callback.
  *
@@ -710,7 +739,7 @@ typedef void (*bt_gatt_notify_complete_func_t) (struct bt_conn *conn);
  */
 int bt_gatt_notify_cb(struct bt_conn *conn, const struct bt_gatt_attr *attr,
 		      const void *data, u16_t len,
-		      bt_gatt_notify_complete_func_t func);
+		      bt_gatt_complete_func_t func);
 
 /** @brief Notify attribute value change.
  *
@@ -729,7 +758,8 @@ int bt_gatt_notify_cb(struct bt_conn *conn, const struct bt_gatt_attr *attr,
  *  @param data Pointer to Attribute data.
  *  @param len Attribute value length.
  */
-static inline int bt_gatt_notify(struct bt_conn *conn, const struct bt_gatt_attr *attr,
+static inline int bt_gatt_notify(struct bt_conn *conn,
+				 const struct bt_gatt_attr *attr,
 				 const void *data, u16_t len)
 {
 	return bt_gatt_notify_cb(conn, attr, data, len, NULL);
@@ -841,12 +871,37 @@ typedef u8_t (*bt_gatt_discover_func_t)(struct bt_conn *conn,
 					const struct bt_gatt_attr *attr,
 					struct bt_gatt_discover_params *params);
 
+/* GATT Discover types */
 enum {
+	/** Discover Primary Services. */
 	BT_GATT_DISCOVER_PRIMARY,
+	/** Discover Secondary Services. */
 	BT_GATT_DISCOVER_SECONDARY,
+	/** Discover Included Services. */
 	BT_GATT_DISCOVER_INCLUDE,
+	/** Discover Characteristic Values.
+	 *
+	 *  Discover Characteristic Value and its properties.
+	 */
 	BT_GATT_DISCOVER_CHARACTERISTIC,
+	/** Discover Descriptors.
+	 *
+	 *  Discover Attributes which are not services or characteristics.
+	 *
+	 *  Note: The use of this type of discover is not recommended for
+	 *  discovering in ranges across multiple services/characteristics
+	 *  as it may incur in extra round trips.
+	 */
 	BT_GATT_DISCOVER_DESCRIPTOR,
+	/** Discover Attributes.
+	 *
+	 *  Discover Attributes of any type.
+	 *
+	 *  Note: The use of this type of discover is not recommended for
+	 *  discovering in ranges across multiple services/characteristics as
+	 *  it may incur in more round trips.
+	 */
+	BT_GATT_DISCOVER_ATTRIBUTE,
 };
 
 /** @brief GATT Discover Attributes parameters */
@@ -995,6 +1050,30 @@ struct bt_gatt_write_params {
  */
 int bt_gatt_write(struct bt_conn *conn, struct bt_gatt_write_params *params);
 
+/** @brief Write Attribute Value by handle without response with callback.
+ *
+ * This function works in the same way as @ref bt_gatt_write_without_response.
+ * With the addition that after sending the write the callback function will be
+ * called.
+ *
+ * Note: By using a callback it also disable the internal flow control
+ * which would prevent sending multiple commands without waiting for their
+ * transmissions to complete, so if that is required the caller shall not
+ * submit more data until the callback is called.
+ *
+ * @param conn Connection object.
+ * @param handle Attribute handle.
+ * @param data Data to be written.
+ * @param length Data length.
+ * @param sign Whether to sign data
+ * @param func Transmission complete callback.
+ *
+ * @return 0 in case of success or negative value in case of error.
+ */
+int bt_gatt_write_without_response_cb(struct bt_conn *conn, u16_t handle,
+				      const void *data, u16_t length,
+				      bool sign, bt_gatt_complete_func_t func);
+
 /** @brief Write Attribute Value by handle without response
  *
  * This procedure write the attribute value without requiring an
@@ -1008,9 +1087,13 @@ int bt_gatt_write(struct bt_conn *conn, struct bt_gatt_write_params *params);
  *
  * @return 0 in case of success or negative value in case of error.
  */
-int bt_gatt_write_without_response(struct bt_conn *conn, u16_t handle,
-				   const void *data, u16_t length,
-				   bool sign);
+static inline int bt_gatt_write_without_response(struct bt_conn *conn,
+						 u16_t handle, const void *data,
+						 u16_t length, bool sign)
+{
+	return bt_gatt_write_without_response_cb(conn, handle, data, length,
+						 sign, NULL);
+}
 
 struct bt_gatt_subscribe_params;
 

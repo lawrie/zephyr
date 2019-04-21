@@ -4,9 +4,9 @@
 # https://github.com/otcshare/contiki-x86
 
 set -e
+unset CFLAGS
 
 JOBS=5
-HEAD="grub-2.02"
 SCRIPT_DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 if [ "x$1" == "x" ]; then
@@ -22,7 +22,7 @@ prepare() {
   fi
 
   pushd src
-  git checkout $HEAD
+  git checkout grub-2.02-285-g5bc41db75
   git clean -fdx
   popd
 }
@@ -30,6 +30,7 @@ prepare() {
 build() {
   pushd src
 
+  ./bootstrap
   ./autogen.sh
   ./configure --with-platform=efi --target=${TARGET_ARCH}
 

@@ -65,10 +65,10 @@ extern "C" {
 	u16_t ext : 1
 
 /** @brief Number of bits used for storing length of hexdump log message. */
-#define LOG_MSG_HEXDUMP_LENGTH_BITS 13
+#define LOG_MSG_HEXDUMP_LENGTH_BITS 14
 
 /** @brief Maximum length of log hexdump message. */
-#define LOG_MSG_HEXDUMP_MAX_LENGTH ((1 << LOG_MSG_HEXDUMP_LENGTH_BITS) - 1)
+#define LOG_MSG_HEXDUMP_MAX_LENGTH (BIT(LOG_MSG_HEXDUMP_LENGTH_BITS) - 1)
 
 /** @brief Part of log message header identifying source and level. */
 struct log_msg_ids {
@@ -102,7 +102,6 @@ BUILD_ASSERT_MSG((sizeof(struct log_msg_std_hdr) == sizeof(u16_t)),
 /** Part of log message header specific to hexdump log message. */
 struct log_msg_hexdump_hdr {
 	COMMON_PARAM_HDR();
-	u16_t raw_string : 1;
 	u16_t length     : LOG_MSG_HEXDUMP_LENGTH_BITS;
 };
 
@@ -234,20 +233,6 @@ static inline u32_t log_msg_timestamp_get(struct log_msg *msg)
 	return msg->hdr.timestamp;
 }
 
-/** @brief Check if message is a raw string (see CONFIG_LOG_PRINTK).
- *
- * @param msg Message
- *
- * @retval true  Message contains raw string.
- * @retval false Message does not contain raw string.
- */
-static inline bool log_msg_is_raw_string(struct log_msg *msg)
-{
-	return (msg->hdr.params.generic.type == LOG_MSG_TYPE_HEXDUMP) &&
-	       (msg->hdr.params.hexdump.raw_string == 1);
-}
-
-
 /** @brief Check if message is of standard type.
  *
  * @param msg Message
@@ -347,14 +332,14 @@ static inline union log_msg_chunk *log_msg_chunk_alloc(void)
  *
  *  @return Allocated chunk of NULL.
  */
-static inline struct log_msg *_log_msg_std_alloc(void)
+static inline struct log_msg *z_log_msg_std_alloc(void)
 {
 	struct  log_msg *msg = (struct  log_msg *)log_msg_chunk_alloc();
 
 	if (msg != NULL) {
 		/* all fields reset to 0, reference counter to 1 */
 		msg->hdr.ref_cnt = 1;
-		msg->hdr.params.raw = 0;
+		msg->hdr.params.raw = 0U;
 		msg->hdr.params.std.type = LOG_MSG_TYPE_STD;
 	}
 
@@ -371,7 +356,7 @@ static inline struct log_msg *_log_msg_std_alloc(void)
  */
 static inline struct log_msg *log_msg_create_0(const char *str)
 {
-	struct log_msg *msg = _log_msg_std_alloc();
+	struct log_msg *msg = z_log_msg_std_alloc();
 
 	if (msg != NULL) {
 		msg->str = str;
@@ -396,11 +381,11 @@ static inline struct log_msg *log_msg_create_0(const char *str)
 static inline struct log_msg *log_msg_create_1(const char *str,
 					       u32_t arg1)
 {
-	struct  log_msg *msg = _log_msg_std_alloc();
+	struct  log_msg *msg = z_log_msg_std_alloc();
 
 	if (msg != NULL) {
 		msg->str = str;
-		msg->hdr.params.std.nargs = 1;
+		msg->hdr.params.std.nargs = 1U;
 		msg->payload.single.args[0] = arg1;
 	}
 
@@ -425,11 +410,11 @@ static inline struct log_msg *log_msg_create_2(const char *str,
 					       u32_t arg1,
 					       u32_t arg2)
 {
-	struct  log_msg *msg = _log_msg_std_alloc();
+	struct  log_msg *msg = z_log_msg_std_alloc();
 
 	if (msg != NULL) {
 		msg->str = str;
-		msg->hdr.params.std.nargs = 2;
+		msg->hdr.params.std.nargs = 2U;
 		msg->payload.single.args[0] = arg1;
 		msg->payload.single.args[1] = arg2;
 	}
@@ -457,11 +442,11 @@ static inline struct log_msg *log_msg_create_3(const char *str,
 					       u32_t arg2,
 					       u32_t arg3)
 {
-	struct  log_msg *msg = _log_msg_std_alloc();
+	struct  log_msg *msg = z_log_msg_std_alloc();
 
 	if (msg != NULL) {
 		msg->str = str;
-		msg->hdr.params.std.nargs = 3;
+		msg->hdr.params.std.nargs = 3U;
 		msg->payload.single.args[0] = arg1;
 		msg->payload.single.args[1] = arg2;
 		msg->payload.single.args[2] = arg3;

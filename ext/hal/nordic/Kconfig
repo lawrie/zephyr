@@ -19,12 +19,18 @@ config NRFX_ADC
 config NRFX_CLOCK
 	bool
 
+config NRFX_DPPI
+	bool
+
 config NRFX_GPIOTE
 	bool
 
 config NRFX_NFCT
 	bool
 	select NRFX_TIMER4
+
+config NRFX_NVMC
+	bool
 
 config NRFX_PPI
 	bool
@@ -39,6 +45,18 @@ config NRFX_RTC
 	bool
 
 config NRFX_SAADC
+	bool
+
+config NRFX_RTC
+	bool
+
+config NRFX_RTC0
+	bool
+
+config NRFX_RTC1
+	bool
+
+config NRFX_RTC2
 	bool
 
 config NRFX_SPI
@@ -93,6 +111,14 @@ config NRFX_UARTE0
 	select NRFX_UARTE
 
 config NRFX_UARTE1
+	bool
+	select NRFX_UARTE
+
+config NRFX_UARTE2
+	bool
+	select NRFX_UARTE
+
+config NRFX_UARTE3
 	bool
 	select NRFX_UARTE
 

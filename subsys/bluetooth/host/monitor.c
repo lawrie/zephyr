@@ -66,7 +66,7 @@ static struct {
 	atomic_t other;
 } drops;
 
-extern int _prf(int (*func)(), void *dest,
+extern int z_prf(int (*func)(), void *dest,
 		const char *format, va_list vargs);
 
 static void monitor_send(const void *data, size_t len)
@@ -86,7 +86,7 @@ static void encode_drops(struct bt_monitor_hdr *hdr, u8_t type,
 	count = atomic_set(val, 0);
 	if (count) {
 		hdr->ext[hdr->hdr_len++] = type;
-		hdr->ext[hdr->hdr_len++] = min(count, 255);
+		hdr->ext[hdr->hdr_len++] = MIN(count, 255);
 	}
 }
 

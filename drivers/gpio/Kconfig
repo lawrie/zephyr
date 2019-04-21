@@ -48,8 +48,6 @@ source "drivers/gpio/Kconfig.cmsdk_ahb"
 
 source "drivers/gpio/Kconfig.cc32xx"
 
-source "drivers/gpio/Kconfig.pulpino"
-
 source "drivers/gpio/Kconfig.sifive"
 
 source "drivers/gpio/Kconfig.spinal_lib_io"
@@ -71,5 +69,9 @@ source "drivers/gpio/Kconfig.sx1509b"
 source "drivers/gpio/Kconfig.imx"
 
 source "drivers/gpio/Kconfig.intel"
+
+source "drivers/gpio/Kconfig.stellaris"
+
+source "drivers/gpio/Kconfig.rv32m1"
 
 endif # GPIO

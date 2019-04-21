@@ -539,7 +539,7 @@ static u8_t get_encryption_key_size(struct bt_smp *smp)
 	 * encryption key length parameters shall be used as the encryption key
 	 * size.
 	 */
-	return min(req->max_key_size, rsp->max_key_size);
+	return MIN(req->max_key_size, rsp->max_key_size);
 }
 
 #if defined(CONFIG_BT_PRIVACY) || defined(CONFIG_BT_SIGNING) || \
@@ -1299,7 +1299,7 @@ static int smp_br_error(struct bt_smp_br *smp, u8_t reason)
 static int bt_smp_br_recv(struct bt_l2cap_chan *chan, struct net_buf *buf)
 {
 	struct bt_smp_br *smp = CONTAINER_OF(chan, struct bt_smp_br, chan);
-	struct bt_smp_hdr *hdr = (void *)buf->data;
+	struct bt_smp_hdr *hdr;
 	u8_t err;
 
 	if (buf->len < sizeof(*hdr)) {
@@ -1307,9 +1307,8 @@ static int bt_smp_br_recv(struct bt_l2cap_chan *chan, struct net_buf *buf)
 		return 0;
 	}
 
+	hdr = net_buf_pull_mem(buf, sizeof(*hdr));
 	BT_DBG("Received SMP code 0x%02x len %u", hdr->code, buf->len);
-
-	net_buf_pull(buf, sizeof(*hdr));
 
 	/*
 	 * If SMP timeout occurred "no further SMP commands shall be sent over
@@ -2253,7 +2252,7 @@ static u8_t smp_master_ident(struct bt_smp *smp, struct net_buf *buf)
 }
 #endif /* !CONFIG_BT_SMP_SC_PAIR_ONLY */
 
-static int _smp_init(struct bt_smp *smp)
+static int smp_init(struct bt_smp *smp)
 {
 	/* Initialize SMP context without clearing L2CAP channel context */
 	(void)memset((u8_t *)smp + sizeof(smp->chan), 0,
@@ -2356,7 +2355,7 @@ int bt_smp_send_security_req(struct bt_conn *conn)
 		return -EINVAL;
 	}
 
-	if (_smp_init(smp) != 0) {
+	if (smp_init(smp) != 0) {
 		return -ENOBUFS;
 	}
 
@@ -2395,7 +2394,7 @@ static u8_t smp_pairing_req(struct bt_smp *smp, struct net_buf *buf)
 	 * is already initialized.
 	 */
 	if (!atomic_test_bit(smp->flags, SMP_FLAG_SEC_REQ)) {
-		int ret = _smp_init(smp);
+		int ret = smp_init(smp);
 
 		if (ret) {
 			return ret;
@@ -2534,7 +2533,7 @@ int bt_smp_send_pairing_req(struct bt_conn *conn)
 		return -EINVAL;
 	}
 
-	if (_smp_init(smp)) {
+	if (smp_init(smp)) {
 		return -ENOBUFS;
 	}
 
@@ -2949,7 +2948,7 @@ static u8_t smp_pairing_random(struct bt_smp *smp, struct net_buf *buf)
 		case PASSKEY_DISPLAY:
 		case PASSKEY_INPUT:
 			smp->passkey_round++;
-			if (smp->passkey_round == 20) {
+			if (smp->passkey_round == 20U) {
 				break;
 			}
 
@@ -3000,7 +2999,7 @@ static u8_t smp_pairing_random(struct bt_smp *smp, struct net_buf *buf)
 		smp_send_pairing_random(smp);
 
 		smp->passkey_round++;
-		if (smp->passkey_round == 20) {
+		if (smp->passkey_round == 20U) {
 			atomic_set_bit(&smp->allowed_cmds, BT_SMP_DHKEY_CHECK);
 			atomic_set_bit(smp->flags, SMP_FLAG_DHCHECK_WAIT);
 			return 0;
@@ -3513,7 +3512,7 @@ static const struct {
 static int bt_smp_recv(struct bt_l2cap_chan *chan, struct net_buf *buf)
 {
 	struct bt_smp *smp = CONTAINER_OF(chan, struct bt_smp, chan);
-	struct bt_smp_hdr *hdr = (void *)buf->data;
+	struct bt_smp_hdr *hdr;
 	u8_t err;
 
 	if (buf->len < sizeof(*hdr)) {
@@ -3521,9 +3520,8 @@ static int bt_smp_recv(struct bt_l2cap_chan *chan, struct net_buf *buf)
 		return 0;
 	}
 
+	hdr = net_buf_pull_mem(buf, sizeof(*hdr));
 	BT_DBG("Received SMP code 0x%02x len %u", hdr->code, buf->len);
-
-	net_buf_pull(buf, sizeof(*hdr));
 
 	/*
 	 * If SMP timeout occurred "no further SMP commands shall be sent over
@@ -3713,7 +3711,7 @@ static void bt_smp_encrypt_change(struct bt_l2cap_chan *chan,
 	}
 }
 
-#if defined(CONFIG_BT_SIGNING)
+#if defined(CONFIG_BT_SIGNING) || defined(CONFIG_BT_SMP_SELFTEST)
 /* Sign message using msg as a buffer, len is a size of the message,
  * msg buffer contains message itself, 32 bit count and signature,
  * so total buffer size is len + 4 + 8 octets.
@@ -3751,7 +3749,9 @@ static int smp_sign_buf(const u8_t *key, u8_t *msg, u16_t len)
 
 	return 0;
 }
+#endif
 
+#if defined(CONFIG_BT_SIGNING)
 int bt_smp_sign_verify(struct bt_conn *conn, struct net_buf *buf)
 {
 	struct bt_keys *keys;

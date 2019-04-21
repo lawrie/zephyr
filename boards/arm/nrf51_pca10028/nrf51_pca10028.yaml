@@ -5,11 +5,15 @@ arch: arm
 toolchain:
   - zephyr
   - gnuarmemb
+  - xtools
 ram: 32
 supported:
   - adc
   - ble
   - nvs
+  - pwm
+  - watchdog
+  - counter
 testing:
   default: true
   ignore_tags:

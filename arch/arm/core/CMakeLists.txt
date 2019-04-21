@@ -1,4 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+
 zephyr_library()
+
+zephyr_compile_options_ifdef(CONFIG_COVERAGE_GCOV
+  -ftest-coverage
+  -fprofile-arcs
+  -fno-inline
+  )
 
 zephyr_library_sources(
   exc_exit.S

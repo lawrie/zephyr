@@ -13,9 +13,30 @@ config USB_DEVICE_HID
 
 if USB_DEVICE_HID
 
+config USB_HID_DEVICE_NAME_0
+	string "USB HID first device name"
+	default "HID_0"
+	help
+	  Device name for the first HID Device.
+
+if USB_COMPOSITE_DEVICE
+
+config USB_HID_DEVICE_1
+	bool "Enable second USB HID Device"
+	help
+	  Enable second USB HID Device for composite configuration.
+
+config USB_HID_DEVICE_NAME_1
+	string "USB HID second device name"
+	depends on USB_HID_DEVICE_1
+	default "HID_1"
+	help
+	  Device name for the second HID Device.
+
+endif # USB_COMPOSITE_DEVICE
+
 config ENABLE_HID_INT_OUT_EP
-	bool
-	prompt "Enable USB HID Device Interrupt OUT Endpoint"
+	bool "Enable USB HID Device Interrupt OUT Endpoint"
 	help
 	  Enable USB HID Device Interrupt OUT Endpoint.
 
@@ -46,8 +67,7 @@ config USB_HID_REPORTS
 	  Must be equal or higher than highest report ID (if they are not consecutive).
 
 config USB_HID_BOOT_PROTOCOL
-	bool
-	prompt "Enable USB HID Boot Protocol handling"
+	bool "Enable USB HID Boot Protocol handling"
 	help
 	  Sets bInterfaceSubClass to 1 and enables Set_Protocol and Get_Protocol
 	  requests handling.

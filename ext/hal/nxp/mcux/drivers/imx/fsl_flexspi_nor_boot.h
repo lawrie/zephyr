@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 NXP
+ * Copyright 2017-2019 NXP
  * All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
@@ -9,7 +9,6 @@
 #define __FLEXSPI_NOR_BOOT_H__
 
 #include <stdint.h>
-#include "board.h"
 
 /*! @name Driver version */
 /*@{*/

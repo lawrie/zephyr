@@ -36,21 +36,6 @@ config UART_CMSDK_APB
 config UART_INTERRUPT_DRIVEN
 	default y
 
-config UART_CMSDK_APB_PORT0
-	default y
-
-config UART_CMSDK_APB_PORT1
-	default y
-
-config UART_CMSDK_APB_PORT2
-	default y
-
-config UART_CMSDK_APB_PORT3
-	default y
-
-config UART_CMSDK_APB_PORT4
-	default y
-
 endif # SERIAL
 
 if WATCHDOG
@@ -62,57 +47,17 @@ endif # WATCHDOG
 
 if COUNTER
 
-if COUNTER_TMR_CMSDK_APB
-
-config COUNTER_TMR_CMSDK_APB_0
+config TIMER_TMR_CMSDK_APB
 	default y
 
-config COUNTER_TMR_CMSDK_APB_1
+config TIMER_DTMR_CMSDK_APB
 	default y
-
-endif # COUNTER_TMR_CMSDK_APB
-
-if TIMER_TMR_CMSDK_APB
-
-config TIMER_TMR_CMSDK_APB_0
-	default y
-
-config TIMER_TMR_CMSDK_APB_1
-	default y
-
-endif # TIMER_TMR_CMSDK_APB
-
-if COUNTER_DTMR_CMSDK_APB
-
-config COUNTER_DTMR_CMSDK_APB_0
-	default y
-
-endif # COUNTER_DTMR_CMSDK_APB
-
-if TIMER_DTMR_CMSDK_APB
-
-config TIMER_DTMR_CMSDK_APB_0
-	default y
-
-endif # TIMER_DTMR_CMSDK_APB
 
 endif # COUNTER
 
 if I2C
 
 config I2C_SBCON
-	default y
-
-config I2C_SBCON_0
-	default y
-
-config I2C_SBCON_1
-	default y
-
-config I2C_SBCON_2
-	default y
-
-config I2C_SBCON_3
 	default y
 
 endif # I2C

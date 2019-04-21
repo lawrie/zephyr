@@ -51,12 +51,12 @@ static inline void pkt_hexdump(const char *title, struct net_pkt *pkt,
 {
 	if (IS_ENABLED(CONFIG_NET_DEBUG_L2_IEEE802154_DISPLAY_PACKET_RX) &&
 	    in) {
-		net_hexdump_frags(title, pkt, false);
+		net_pkt_hexdump(pkt, title);
 	}
 
 	if (IS_ENABLED(CONFIG_NET_DEBUG_L2_IEEE802154_DISPLAY_PACKET_TX) &&
 	    !in) {
-		net_hexdump_frags(title, pkt, false);
+		net_pkt_hexdump(pkt, title);
 	}
 }
 
@@ -69,29 +69,19 @@ static inline void ieee802154_acknowledge(struct net_if *iface,
 					  struct ieee802154_mpdu *mpdu)
 {
 	struct net_pkt *pkt;
-	struct net_buf *frag;
 
 	if (!mpdu->mhr.fs->fc.ar) {
 		return;
 	}
 
-	pkt = net_pkt_get_reserve_tx(BUF_TIMEOUT);
+	pkt = net_pkt_alloc_with_buffer(iface, IEEE802154_ACK_PKT_LENGTH,
+					AF_UNSPEC, 0, BUF_TIMEOUT);
 	if (!pkt) {
 		return;
 	}
 
-	frag = net_pkt_get_frag(pkt, BUF_TIMEOUT);
-	if (!frag) {
-		net_pkt_unref(pkt);
-		return;
-	}
-
-	net_pkt_frag_insert(pkt, frag);
-
 	if (ieee802154_create_ack_frame(iface, pkt, mpdu->mhr.fs->sequence)) {
-		net_buf_add(frag, IEEE802154_ACK_PKT_LENGTH);
-
-		ieee802154_tx(iface, pkt, frag);
+		ieee802154_tx(iface, pkt, pkt->buffer);
 	}
 
 	net_pkt_unref(pkt);
@@ -120,7 +110,7 @@ static inline void set_pkt_ll_addr(struct net_linkaddr *addr, bool comp,
 		}
 	} else {
 		/* ToDo: Handle short address (lookup known nbr, ...) */
-		addr->len = 0;
+		addr->len = 0U;
 		addr->addr = NULL;
 	}
 
@@ -228,7 +218,7 @@ static enum net_verdict ieee802154_recv(struct net_if *iface,
 	pkt_hexdump(RX_PKT_TITLE " (with ll)", pkt, true);
 
 	hdr_len = (u8_t *)mpdu.payload - net_pkt_data(pkt);
-	net_buf_pull(pkt->frags, hdr_len);
+	net_buf_pull(pkt->buffer, hdr_len);
 
 	return ieee802154_manage_recv_packet(iface, pkt, hdr_len);
 
@@ -238,7 +228,7 @@ static int ieee802154_send(struct net_if *iface, struct net_pkt *pkt)
 {
 	struct ieee802154_context *ctx = net_if_l2_data(iface);
 	struct ieee802154_fragment_ctx f_ctx;
-	struct net_buf *frag;
+	struct net_buf *buf;
 	u8_t ll_hdr_size;
 	bool fragment;
 	int len;
@@ -247,35 +237,35 @@ static int ieee802154_send(struct net_if *iface, struct net_pkt *pkt)
 		return -EINVAL;
 	}
 
+	ll_hdr_size = ieee802154_compute_header_size(iface,
+						     &NET_IPV6_HDR(pkt)->dst);
+
 	/* len will hold the hdr size difference on success */
 	len = net_6lo_compress(pkt, true);
 	if (len < 0) {
 		return len;
 	}
 
-	ll_hdr_size = ieee802154_compute_header_size(iface,
-						     &NET_IPV6_HDR(pkt)->dst);
-
 	fragment = ieee802154_fragment_is_needed(pkt, ll_hdr_size);
 	ieee802154_fragment_ctx_init(&f_ctx, pkt, len, true);
 
 	len = 0;
-	frame_buf.len = 0;
-	frag = pkt->frags;
+	frame_buf.len = 0U;
+	buf = pkt->buffer;
 
-	while (frag) {
+	while (buf) {
 		int ret;
 
 		net_buf_add(&frame_buf, ll_hdr_size);
 
 		if (fragment) {
 			ieee802154_fragment(&f_ctx, &frame_buf, true);
-			frag = f_ctx.frag;
+			buf = f_ctx.buf;
 		} else {
 			memcpy(frame_buf.data + frame_buf.len,
-			       frag->data, frag->len);
-			net_buf_add(&frame_buf, frag->len);
-			frag = frag->frags;
+			       buf->data, buf->len);
+			net_buf_add(&frame_buf, buf->len);
+			buf = buf->frags;
 		}
 
 		if (!ieee802154_create_data_frame(ctx, net_pkt_lladdr_dst(pkt),
@@ -298,7 +288,7 @@ static int ieee802154_send(struct net_if *iface, struct net_pkt *pkt)
 		len += frame_buf.len;
 
 		/* Reinitializing frame_buf */
-		frame_buf.len = 0;
+		frame_buf.len = 0U;
 	}
 
 	net_pkt_unref(pkt);

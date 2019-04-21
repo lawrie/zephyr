@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Intel Corporation
+ * Copyright (c) 2018-2019, Intel Corporation
  * Copyright (c) 2010-2015, Wind River Systems, Inc.
  *
  * SPDX-License-Identifier: Apache-2.0
@@ -23,7 +23,9 @@
 #include <random/rand32.h>
 #endif
 
+#ifdef CONFIG_GPIO_INTEL_APL
 #include "soc_gpio.h"
+#endif
 
 #ifdef CONFIG_PCI
 
@@ -42,60 +44,6 @@
  * If not, override this in board configuration.
  */
 #define pci_pin2irq(bus, dev, pin)              (pin)
-
-
-/* UARTs */
-#ifdef CONFIG_UART_NS16550_PCI
-
-#ifdef CONFIG_UART_NS16550_PORT_0_PCI
-
-#define UART_NS16550_PORT_0_PCI_CLASS           0x11
-#define UART_NS16550_PORT_0_PCI_BUS             0
-#define UART_NS16550_PORT_0_PCI_DEV             18
-#define UART_NS16550_PORT_0_PCI_VENDOR_ID       0x8086
-#define UART_NS16550_PORT_0_PCI_DEVICE_ID       0x5abc
-#define UART_NS16550_PORT_0_PCI_FUNC            0
-#define UART_NS16550_PORT_0_PCI_BAR             0
-
-#endif /* CONFIG_UART_NS16550_PORT_0_PCI */
-
-#ifdef CONFIG_UART_NS16550_PORT_1_PCI
-
-#define UART_NS16550_PORT_1_PCI_CLASS           0x11
-#define UART_NS16550_PORT_1_PCI_BUS             0
-#define UART_NS16550_PORT_1_PCI_DEV             18
-#define UART_NS16550_PORT_1_PCI_VENDOR_ID       0x8086
-#define UART_NS16550_PORT_1_PCI_DEVICE_ID       0x5abe
-#define UART_NS16550_PORT_1_PCI_FUNC            1
-#define UART_NS16550_PORT_1_PCI_BAR             0
-
-#endif /* CONFIG_UART_NS16550_PORT_1_PCI */
-
-#ifdef CONFIG_UART_NS16550_PORT_2_PCI
-
-#define UART_NS16550_PORT_2_PCI_CLASS           0x11
-#define UART_NS16550_PORT_2_PCI_BUS             0
-#define UART_NS16550_PORT_2_PCI_DEV             18
-#define UART_NS16550_PORT_2_PCI_VENDOR_ID       0x8086
-#define UART_NS16550_PORT_2_PCI_DEVICE_ID       0x5ac0
-#define UART_NS16550_PORT_2_PCI_FUNC            2
-#define UART_NS16550_PORT_2_PCI_BAR             0
-
-#endif /* CONFIG_UART_NS16550_PORT_2_PCI */
-
-#ifdef CONFIG_UART_NS16550_PORT_3_PCI
-
-#define UART_NS16550_PORT_3_PCI_CLASS           0x11
-#define UART_NS16550_PORT_3_PCI_BUS             0
-#define UART_NS16550_PORT_3_PCI_DEV             18
-#define UART_NS16550_PORT_3_PCI_VENDOR_ID       0x8086
-#define UART_NS16550_PORT_3_PCI_DEVICE_ID       0x5aee
-#define UART_NS16550_PORT_3_PCI_FUNC            3
-#define UART_NS16550_PORT_3_PCI_BAR             0
-
-#endif /* CONFIG_UART_NS16550_PORT_3_PCI */
-
-#endif /* CONFIG_UART_NS16550_PCI */
 
 /* I2C controllers */
 #define I2C_DW_0_PCI_VENDOR_ID                  0x8086

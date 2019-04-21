@@ -54,7 +54,7 @@
 
 #ifdef _ASMLANGUAGE
 
-  #ifdef CONFIG_X86
+  #if defined(CONFIG_X86) || defined(CONFIG_X86_64)
 
     #ifdef PERF_OPT
       #define PERFOPT_ALIGN .balign 16
@@ -64,11 +64,7 @@
 
   #elif defined(CONFIG_ARM)
 
-    #ifdef CONFIG_ISA_THUMB
-      #define PERFOPT_ALIGN .balign  2
-    #else
-      #define PERFOPT_ALIGN .balign  4
-    #endif
+    #define PERFOPT_ALIGN .balign  4
 
   #elif defined(CONFIG_ARC)
 
@@ -93,11 +89,29 @@
 /* force inlining a function */
 
 #if !defined(_ASMLANGUAGE)
-  #define ALWAYS_INLINE inline __attribute__((always_inline))
+  #ifdef CONFIG_COVERAGE
+    /*
+     * The always_inline attribute forces a function to be inlined,
+     * even ignoring -fno-inline. So for code coverage, do not
+     * force inlining of these functions to keep their bodies around
+     * so their number of executions can be counted.
+     *
+     * Note that "inline" is kept here for kobject_hash.c and
+     * priv_stacks_hash.c. These are built without compiler flags
+     * used for coverage. ALWAYS_INLINE cannot be empty as compiler
+     * would complain about unused functions. Attaching unused
+     * attribute would result in their text sections ballon more than
+     * 10 times in size, as those functions are kept in text section.
+     * So just keep "inline" here.
+     */
+    #define ALWAYS_INLINE inline
+  #else
+    #define ALWAYS_INLINE inline __attribute__((always_inline))
+  #endif
 #endif
 
-#define _STRINGIFY(x) #x
-#define STRINGIFY(s) _STRINGIFY(s)
+#define Z_STRINGIFY(x) #x
+#define STRINGIFY(s) Z_STRINGIFY(s)
 
 /* concatenate the values of the arguments into one */
 #define _DO_CONCAT(x, y) x ## y

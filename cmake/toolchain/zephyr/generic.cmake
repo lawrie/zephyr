@@ -1,7 +1,7 @@
-set(COMPILER gcc)
+# SPDX-License-Identifier: Apache-2.0
 
-set(CROSS_COMPILE_TARGET i586-${TOOLCHAIN_VENDOR}-elf)
-set(SYSROOT_TARGET       i586-${TOOLCHAIN_VENDOR}-elf)
+if(NOT DEFINED SDK_VERSION)
+  message(FATAL_ERROR "SDK_VERSION must be set")
+endif()
 
-set(CROSS_COMPILE ${TOOLCHAIN_HOME}/usr/bin/${CROSS_COMPILE_TARGET}/${CROSS_COMPILE_TARGET}-)
-set(SYSROOT_DIR ${ZEPHYR_SDK_INSTALL_DIR}/sysroots/${SYSROOT_TARGET}/usr)
+include(${ZEPHYR_BASE}/cmake/toolchain/zephyr/${SDK_VERSION}/generic.cmake)

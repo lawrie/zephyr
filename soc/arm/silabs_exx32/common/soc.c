@@ -18,6 +18,10 @@
 #include <arch/cpu.h>
 #include <cortex_m/exc.h>
 
+#include <logging/log.h>
+
+LOG_MODULE_REGISTER(soc, CONFIG_SOC_LOG_LEVEL);
+
 #ifdef CONFIG_CMU_HFCLK_HFXO
 /**
  * @brief Initialization parameters for the external high frequency oscillator
@@ -66,6 +70,11 @@ static ALWAYS_INLINE void clkInit(void)
 	/* Enable the High Frequency Peripheral Clock */
 	CMU_ClockEnable(cmuClock_HFPER, true);
 
+#ifdef CONFIG_LOG_BACKEND_SWO
+	/* Select HFCLK as the debug trace clock */
+	CMU->DBGCLKSEL = CMU_DBGCLKSEL_DBG_HFCLK;
+#endif
+
 #ifdef CONFIG_GPIO_GECKO
 	CMU_ClockEnable(cmuClock_GPIO, true);
 #endif
@@ -110,7 +119,7 @@ static int silabs_exx32_init(struct device *arg)
 	/* handle chip errata */
 	CHIP_Init();
 
-	_ClearFaults();
+	z_clearfaults();
 
 #ifdef CONFIG_SOC_GECKO_EMU_DCDC
 	dcdc_init();

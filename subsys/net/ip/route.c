@@ -28,7 +28,6 @@ LOG_MODULE_REGISTER(net_route, CONFIG_NET_ROUTE_LOG_LEVEL);
 #include "icmpv6.h"
 #include "nbr.h"
 #include "route.h"
-#include "rpl.h"
 
 #if !defined(NET_ROUTE_EXTRA_DATA_SIZE)
 #define NET_ROUTE_EXTRA_DATA_SIZE 0
@@ -205,9 +204,14 @@ static struct net_nbr *nbr_nexthop_get(struct net_if *iface,
 	/* Note that the nexthop host must be already in the neighbor
 	 * cache. We just increase the ref count of an existing entry.
 	 */
-	struct net_nbr *nbr = net_ipv6_nbr_lookup(iface, addr);
+	struct net_nbr *nbr;
 
-	NET_ASSERT_INFO(nbr, "Next hop neighbor not found!");
+	nbr = net_ipv6_nbr_lookup(iface, addr);
+	if (nbr == NULL) {
+		NET_DBG("Next hop neighbor not found!");
+		return NULL;
+	}
+
 	NET_ASSERT_INFO(nbr->idx != NET_NBR_LLADDR_UNKNOWN,
 			"Nexthop %s not in neighbor cache!",
 			log_strdup(net_sprint_ipv6_addr(addr)));
@@ -544,7 +548,7 @@ int net_route_del_by_nexthop_data(struct net_if *iface,
 				continue;
 			}
 
-			if (nbr->extra_data_size == 0) {
+			if (nbr->extra_data_size == 0U) {
 				continue;
 			}
 

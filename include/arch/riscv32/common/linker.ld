@@ -104,6 +104,8 @@ SECTIONS
     SECTION_PROLOGUE(_RODATA_SECTION_NAME,,)
 	{
 		 . = ALIGN(4);
+		 *(.srodata)
+		 *(".srodata.*")
 		 *(.rodata)
 		 *(".rodata.*")
 		 *(.gnu.linkonce.r.*)
@@ -188,5 +190,11 @@ SECTIONS
      GROUP_END(RAMABLE_REGION)
 
 #include <linker/debug-sections.ld>
+
+    SECTION_PROLOGUE(.riscv.attributes, 0,)
+	{
+	KEEP(*(.riscv.attributes))
+	KEEP(*(.gnu.attributes))
+	}
 
 }

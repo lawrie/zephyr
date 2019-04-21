@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
 #include <arm/armv7-m.dtsi>
 #include <dt-bindings/clock/kinetis_sim.h>
 #include <dt-bindings/gpio/gpio.h>
@@ -253,7 +255,6 @@
 			label = "SPI_1";
 			clocks = <&sim KINETIS_SIM_BUS_CLK 0x103C 13>;
 
-			cs-gpios = <&gpiob 10 0>;
 			pinctrl-0 = <&spi1_default>;
 			pinctrl-names = "default";
 			#address-cells = <1>;

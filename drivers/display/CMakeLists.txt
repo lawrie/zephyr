@@ -1,4 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
 
+
+zephyr_sources_ifdef(CONFIG_DISPLAY_MCUX_ELCDIF	display_mcux_elcdif.c)
 zephyr_sources_ifdef(CONFIG_GROVE_LCD_RGB grove_lcd_rgb.c)
 zephyr_sources_ifdef(CONFIG_MICROBIT_DISPLAY
 	mb_display.c

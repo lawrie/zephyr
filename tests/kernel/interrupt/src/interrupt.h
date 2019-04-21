@@ -8,8 +8,6 @@
 #include <irq_offload.h>
 #include <kernel_structs.h>
 
-#define IRQ_LINE(offset) (CONFIG_NUM_IRQS - ((offset) + 1))
-
 
 #if defined(CONFIG_ARM)
 #include <arch/arm/cortex_m/cmsis.h>
@@ -24,7 +22,7 @@ static void trigger_irq(int irq)
 #endif
 }
 
-#elif defined(CONFIG_RISCV32) && !defined(CONFIG_SOC_RISCV32_PULPINO)
+#elif defined(CONFIG_RISCV32)
 static void trigger_irq(int irq)
 {
 	u32_t mip;
@@ -39,7 +37,7 @@ static void trigger_irq(int irq)
 static void trigger_irq(int irq)
 {
 	printk("Triggering irq : %d\n", irq);
-	_arc_v2_aux_reg_write(_ARC_V2_AUX_IRQ_HINT, irq);
+	z_arc_v2_aux_reg_write(_ARC_V2_AUX_IRQ_HINT, irq);
 }
 #else
 /* for not supported architecture */

@@ -23,8 +23,9 @@ config MULTITHREADING
 	  since the main thread cannot pend, it being the only thread in the
 	  system.
 
-	  Many drivers and subsystems will not work with this option; use only
-	  when you REALLY know what you are doing.
+	  Many drivers and subsystems will not work with this option
+	  set to 'n'; disable only when you REALLY know what you are
+	  doing.
 
 config NUM_COOP_PRIORITIES
 	int "Number of coop priorities" if MULTITHREADING
@@ -125,9 +126,28 @@ config SCHED_DEADLINE
 	  single priority will choose the next expiring deadline and
 	  not simply the least recently added thread.
 
+config SCHED_CPU_MASK
+	bool "Enable CPU mask affinity/pinning API"
+	depends on SCHED_DUMB
+	help
+	  When true, the app will have access to the
+	  z_thread_*_cpu_mask() APIs which control per-CPU affinity
+	  masks in SMP mode, allowing apps to pin threads to specific
+	  CPUs or disallow threads from running on given CPUs.  Note
+	  that as currently implemented, this involves an inherent
+	  O(N) scaling in the number of idle-but-runnable threads, and
+	  thus works only with the DUMB scheduler (as SCALABLE and
+	  MULTIQ would see no benefit).
+
+	  Note that this setting does not technically depend on SMP
+	  and is implemented without it for testing purposes, but for
+	  obvious reasons makes sense as an application API only where
+	  there is more than one CPU.  With one CPU, it's just a
+	  higher overhead version of k_thread_start/stop().
 
 config MAIN_STACK_SIZE
 	int "Size of stack for initialization and main thread"
+	default 2048 if COVERAGE_GCOV
 	default 512 if ZTEST
 	default 1024
 	help
@@ -139,6 +159,7 @@ config MAIN_STACK_SIZE
 
 config IDLE_STACK_SIZE
 	int "Size of stack for idle thread"
+	default 2048 if COVERAGE_GCOV
 	default 1024 if XTENSA
 	default 512 if RISCV32
 	default 320 if ARC || (ARM && CPU_HAS_FPU)
@@ -175,7 +196,7 @@ config THREAD_USERSPACE_LOCAL_DATA
 config THREAD_USERSPACE_LOCAL_DATA_ARCH_DEFER_SETUP
 	bool
 	depends on THREAD_USERSPACE_LOCAL_DATA
-	default y if ARCH="arc"
+	default y if ARC || ARM
 
 config ERRNO
 	bool "Enable errno support"
@@ -186,14 +207,6 @@ config ERRNO
 	  include errno.h provided by the C library (libc) to use the errno
 	  symbol. The C library must access the per-thread errno via the
 	  _get_errno() symbol.
-
-config APPLICATION_MEMORY
-	bool "Split kernel and application memory"
-	help
-	  For all read-write memory sections (namely bss, noinit, data),
-	  separate them into application and kernel areas. The application area
-	  will have the project-level application objects and any libraries
-	  including the C library in it.
 
 choice SCHED_ALGORITHM
 	prompt "Scheduler priority queue algorithm"
@@ -335,7 +348,7 @@ config EXECUTION_BENCHMARKING
 	  This option enables the tracking of various times inside the kernel
 	  the exact set of metrics being tracked is board-dependent.
 	  All timing measurements are enabled for X86 and ARM based architectures.
-	  In other architectures only a subset are enabled.
+	  In other architectures only a subset is enabled.
 
 config THREAD_MONITOR
 	bool "Thread monitoring [EXPERIMENTAL]"
@@ -473,6 +486,15 @@ config HEAP_MEM_POOL_SIZE
 	  dynamically allocating memory using k_malloc(). Supported values
 	  are: 256, 1024, 4096, and 16384. A size of zero means that no
 	  heap memory pool is defined.
+
+config HEAP_MEM_POOL_MIN_SIZE
+	int "The smallest blocks in the heap memory pool (in bytes)"
+	depends on HEAP_MEM_POOL_SIZE != 0
+	default 64
+	help
+	  This option specifies the size of the smallest block in the pool.
+	  Option must be a power of 2 and lower than or equal to the size
+	  of the entire pool.
 endmenu
 
 config ARCH_HAS_CUSTOM_SWAP_TO_MAIN
@@ -482,6 +504,18 @@ config ARCH_HAS_CUSTOM_SWAP_TO_MAIN
 	  It's possible that an architecture port cannot use _Swap() to swap to
 	  the _main() thread, but instead must do something custom. It must
 	  enable this option in that case.
+
+config SWAP_NONATOMIC
+	bool
+	help
+	  On some architectures, the _Swap() primitive cannot be made
+	  atomic with respect to the irq_lock being released.  That
+	  is, interrupts may be received between the entry to _Swap
+	  and the completion of the context switch.  There are a
+	  handful of workaround cases in the kernel that need to be
+	  enabled when this is true.  Currently, this only happens on
+	  ARM when the PendSV exception priority sits below that of
+	  Zephyr-handled interrupts.
 
 config ARCH_HAS_CUSTOM_BUSY_WAIT
 	bool
@@ -579,22 +613,10 @@ endmenu
 
 menu "Security Options"
 
-config RETPOLINE
-	bool "Build with retpolines enabled"
-	default y if !X86_NO_SPECTRE_V2
-	# Currently only implemented for x86
-	depends on X86
-	help
-	  This is recommended on platforms with speculative executions, to protect
-	  against branch target injection (AKA Spectre-V2).  Full description of
-	  how retpolines work can be found here[1].
-
-	  [1] https://support.google.com/faqs/answer/7625886
-
 config STACK_CANARIES
 	bool "Compiler stack canaries"
 	help
-	  This option enables compiler stack canaries support kernel functions.
+	  This option enables compiler stack canaries.
 
 	  If stack canaries are supported by the compiler, it will emit
 	  extra code that inserts a canary value into the stack frame when
@@ -604,8 +626,8 @@ config STACK_CANARIES
 	  Enabling this option can result in a significant increase
 	  in footprint and an associated decrease in performance.
 
-	  If stack canaries are not supported by the compiler, enabling this
-	  option has no effect.
+	  If stack canaries are not supported by the compiler an error
+	  will occur at build time.
 
 config EXECUTE_XOR_WRITE
 	bool "Enable W^X for memory partitions"
@@ -639,6 +661,17 @@ config STACK_POINTER_RANDOM
 	  This is currently only implemented for systems whose stack pointers
 	  grow towards lower memory addresses.
 
+config BOUNDS_CHECK_BYPASS_MITIGATION
+	bool "Enable bounds check bypass mitigations for speculative execution"
+	depends on USERSPACE
+	help
+	  Untrusted parameters from user mode may be used in system calls to
+	  index arrays during speculative execution, also known as the Spectre
+	  V1 vulnerability. When enabled, various macros defined in
+	  misc/speculation.h will insert fence instructions or other appropriate
+	  mitigations after bounds checking any array index parameters passed
+	  in from untrusted sources (user mode threads). When disabled, these
+	  macros do nothing.
 endmenu
 
 config MAX_DOMAIN_PARTITIONS
@@ -682,6 +715,17 @@ config MP_NUM_CPUS
 	help
 	  Number of multiprocessing-capable cores available to the
 	  multicpu API and SMP features.
+
+config SCHED_IPI_SUPPORTED
+	bool "Architecture supports broadcast interprocessor interrupts"
+	help
+	  True if the architecture supports a call to
+	  z_arch_sched_ipi() to broadcast an interrupt that will call
+	  z_sched_ipi() on other CPUs in the system.  Required for
+	  k_thread_abort() to operate with reasonable latency
+	  (otherwise we might have to wait for the other thread to
+	  take an interrupt, which can be arbitrarily far in the
+	  future).
 
 endmenu
 

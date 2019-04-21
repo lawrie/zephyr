@@ -18,6 +18,12 @@
 #include <logging/log.h>
 LOG_MODULE_REGISTER(pca9633);
 
+#ifdef CONFIG_HAS_DTS_I2C
+#define CONFIG_PCA9633_DEV_NAME                 DT_NXP_PCA9633_0_LABEL
+#define CONFIG_PCA9633_I2C_ADDRESS              DT_NXP_PCA9633_0_BASE_ADDRESS
+#define CONFIG_PCA9633_I2C_MASTER_DEV_NAME      DT_NXP_PCA9633_0_BUS_NAME
+#endif
+
 #include "led_context.h"
 
 /* PCA9633 select registers determine the source that drives LED outputs */
@@ -64,7 +70,7 @@ static int pca9633_led_blink(struct device *dev, u32_t led,
 	 *	(time_on / period) = (GDC / 256) ->
 	 *		GDC = ((time_on * 256) / period)
 	 */
-	gdc = delay_on * 256 / period;
+	gdc = delay_on * 256U / period;
 	if (i2c_reg_write_byte(data->i2c, CONFIG_PCA9633_I2C_ADDRESS,
 			       PCA9633_GRPPWM,
 			       gdc)) {
@@ -78,7 +84,7 @@ static int pca9633_led_blink(struct device *dev, u32_t led,
 	 * So, period (in ms) = (((GFRQ + 1) / 24) * 1000) ->
 	 *		GFRQ = ((period * 24 / 1000) - 1)
 	 */
-	gfrq = (period * 24 / 1000) - 1;
+	gfrq = (period * 24U / 1000) - 1;
 	if (i2c_reg_write_byte(data->i2c, CONFIG_PCA9633_I2C_ADDRESS,
 			       PCA9633_GRPFREQ,
 			       gfrq)) {
@@ -120,7 +126,7 @@ static int pca9633_led_set_brightness(struct device *dev, u32_t led,
 	}
 
 	/* Set the LED brightness value */
-	val = (value * 255) / dev_data->max_brightness;
+	val = (value * 255U) / dev_data->max_brightness;
 	if (i2c_reg_write_byte(data->i2c, CONFIG_PCA9633_I2C_ADDRESS,
 			       PCA9633_PWM_BASE + led,
 			       val)) {

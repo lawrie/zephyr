@@ -5,6 +5,7 @@
  */
 
 #include <ztest.h>
+#include <power.h>
 #include <irq_offload.h>
 #include <misc/stack.h>
 
@@ -22,8 +23,24 @@ static void tdata_dump_callback(const struct k_thread *thread, void *user_data)
 						thread->stack_info.size);
 }
 
-/*power hook functions*/
-int sys_suspend(s32_t ticks)
+/*
+ * Weak power hook functions. Used on systems that have not implemented
+ * power management.
+ */
+__weak void sys_set_power_state(enum power_states state)
+{
+	/* Never called. */
+	__ASSERT_NO_MSG(false);
+}
+
+__weak void _sys_pm_power_state_exit_post_ops(enum power_states state)
+{
+	/* Never called. */
+	__ASSERT_NO_MSG(false);
+}
+
+/* Our PM policy handler */
+enum power_states sys_pm_policy_next_state(s32_t ticks)
 {
 	static bool test_flag;
 
@@ -35,11 +52,7 @@ int sys_suspend(s32_t ticks)
 		test_flag = true;
 	}
 
-	return 0;
-}
-
-void sys_resume(void)
-{
+	return SYS_POWER_STATE_ACTIVE;
 }
 
 /*work handler*/
@@ -81,7 +94,7 @@ void test_call_stacks_analyze_main(void)
  *
  * @ingroup kernel_profiling_tests
  *
- * @see k_thread_foreach(), sys_suspend(), sys_resume(),
+ * @see k_thread_foreach(), _sys_suspend(), _sys_resume(),
  * stack_analyze()
  */
 void test_call_stacks_analyze_idle(void)

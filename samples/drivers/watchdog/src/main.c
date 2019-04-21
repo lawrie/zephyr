@@ -10,8 +10,14 @@
 #include <watchdog.h>
 #include <misc/printk.h>
 
-#define WDT_DEV_NAME   CONFIG_WDT_0_NAME
 #define WDT_FEED_TRIES 5
+
+
+#ifdef CONFIG_WDT_0_NAME
+#define WDT_DEV_NAME CONFIG_WDT_0_NAME
+#else
+#define WDT_DEV_NAME DT_WDT_0_NAME
+#endif
 
 static void wdt_callback(struct device *wdt_dev, int channel_id)
 {
@@ -41,8 +47,8 @@ void main(void)
 	wdt_config.flags = WDT_FLAG_RESET_SOC;
 
 	/* Expire watchdog after 5000 milliseconds. */
-	wdt_config.window.min = 0;
-	wdt_config.window.max = 5000;
+	wdt_config.window.min = 0U;
+	wdt_config.window.max = 5000U;
 
 	/* Set up watchdog callback. Jump into it when watchdog expired. */
 	wdt_config.callback = wdt_callback;

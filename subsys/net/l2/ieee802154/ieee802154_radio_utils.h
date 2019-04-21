@@ -25,10 +25,10 @@ static inline bool prepare_for_ack(struct ieee802154_context *ctx,
 				   struct net_pkt *pkt,
 				   struct net_buf *frag)
 {
-	if (ieee802154_is_ar_flag_set(pkt)) {
+	if (ieee802154_is_ar_flag_set(frag)) {
 		struct ieee802154_fcf_seq *fs;
 
-		fs = (struct ieee802154_fcf_seq *)net_pkt_data(pkt);
+		fs = (struct ieee802154_fcf_seq *)frag->data;
 
 		ctx->ack_seq = fs->sequence;
 		ctx->ack_received = false;
@@ -59,7 +59,7 @@ static inline int wait_for_ack(struct net_if *iface,
 		k_sem_init(&ctx->ack_lock, 0, UINT_MAX);
 	}
 
-	ctx->ack_seq = 0;
+	ctx->ack_seq = 0U;
 
 	return ctx->ack_received ? 0 : -EIO;
 }
@@ -67,7 +67,7 @@ static inline int wait_for_ack(struct net_if *iface,
 static inline int handle_ack(struct ieee802154_context *ctx,
 			     struct net_pkt *pkt)
 {
-	if (pkt->frags->len == IEEE802154_ACK_PKT_LENGTH) {
+	if (pkt->buffer->len == IEEE802154_ACK_PKT_LENGTH) {
 		struct ieee802154_fcf_seq *fs;
 
 		fs = ieee802154_validate_fc_seq(net_pkt_data(pkt), NULL);

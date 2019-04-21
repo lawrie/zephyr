@@ -59,6 +59,13 @@ dependencies manually, you can also download the required programs from their
 respective websites.
 
 .. note::
+   Chocolatey will properly set up your environment so tools can be
+   found on your PATH.  If you install programs manually, be sure to
+   verify the programs can also be found on your PATH.  For example,
+   you may need to add ``C:\\Program Files\Git\bin`` after manually
+   installing Git for Windows.
+
+.. note::
    There are multiple ``set`` statements in this tutorial. You can avoid
    typing them every time by placing them inside a ``.cmd`` file and
    running that every time you open a command prompt.
@@ -112,6 +119,11 @@ built-in functionality to natively run Ubuntu binaries directly on a standard
 command-prompt. This allows you to use software such as the :ref:`Zephyr SDK
 <zephyr_sdk>` without setting up a virtual machine.
 
+.. warning::
+      Windows 10 version 1803 has an issue that will cause CMake to not work
+      properly and is fixed in version 1809 (and later).
+      More information can be found in `Zephyr Issue 10420`_
+
 #. `Install the Windows Subsystem for Linux (WSL)`_.
 
    .. note::
@@ -129,3 +141,4 @@ command-prompt. This allows you to use software such as the :ref:`Zephyr SDK
 .. _Chocolatey: https://chocolatey.org/
 .. _Chocolatey install: https://chocolatey.org/install
 .. _Install the Windows Subsystem for Linux (WSL): https://msdn.microsoft.com/en-us/commandline/wsl/install_guide
+.. _Zephyr Issue 10420: https://github.com/zephyrproject-rtos/zephyr/issues/10420

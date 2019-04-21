@@ -156,7 +156,7 @@ static bool check_higher_priority_pkt_recv(int tc, struct net_pkt *pkt)
  */
 static int eth_tx(struct device *dev, struct net_pkt *pkt)
 {
-	if (!pkt->frags) {
+	if (!pkt->buffer) {
 		DBG("No data to send!\n");
 		return -ENODATA;
 	}
@@ -183,11 +183,9 @@ static int eth_tx(struct device *dev, struct net_pkt *pkt)
 		udp_hdr->src_port = udp_hdr->dst_port;
 		udp_hdr->dst_port = port;
 
-		net_pkt_ref(pkt);
-
-		if (net_recv_data(net_pkt_iface(pkt), pkt) < 0) {
+		if (net_recv_data(net_pkt_iface(pkt),
+				  net_pkt_clone(pkt, K_NO_WAIT)) < 0) {
 			test_failed = true;
-			net_pkt_unref(pkt);
 			zassert_true(false, "Packet %p receive failed\n", pkt);
 		}
 
@@ -269,7 +267,8 @@ static int eth_init(struct device *dev)
  */
 NET_DEVICE_INIT(eth_test, "eth_test", eth_init, &eth_context,
 		NULL, CONFIG_ETH_INIT_PRIORITY, &api_funcs,
-		DUMMY_L2, NET_L2_GET_CTX_TYPE(DUMMY_L2), 1500);
+		DUMMY_L2, NET_L2_GET_CTX_TYPE(DUMMY_L2),
+		NET_ETH_MTU);
 
 static void address_setup(void)
 {
@@ -352,7 +351,7 @@ static bool add_neighbor(struct net_if *iface, struct in6_addr *addr)
 	llstorage.addr[4] = 0x05;
 	llstorage.addr[5] = 0x06;
 
-	lladdr.len = 6;
+	lladdr.len = 6U;
 	lladdr.addr = llstorage.addr;
 	lladdr.type = NET_LINK_ETHERNET;
 
@@ -460,41 +459,28 @@ static void traffic_class_send_packets_with_prio(enum net_priority prio,
 	/* Start to send data to each queue and verify that the data
 	 * is received in correct order.
 	 */
-	struct net_pkt *pkt;
-	struct net_buf *frag;
-	u8_t *appdata;
+	u8_t data[128];
 	int len, ret;
 	int tc = net_tx_priority2tc(prio);
 
-	pkt = net_pkt_get_tx(net_ctxs[tc].ctx, K_FOREVER);
-	zassert_not_null(pkt, "Cannot get pkt for TC %d\n", tc);
-
-	frag = net_pkt_get_data(net_ctxs[tc].ctx, K_FOREVER);
-	zassert_not_null(frag, "Cannot get frag");
-	net_pkt_frag_add(pkt, frag);
-
 	/* Convert num to ascii */
-	net_buf_add_u8(frag, tc + 0x30);
-	len = 1;
+	data[0] = tc + 0x30;
+	len = strlen(test_data);
+	memcpy(data+1, test_data, strlen(test_data));
 
-	ret = strlen(test_data);
-	len += ret;
-	memcpy(net_buf_add(frag, ret), test_data, ret);
-	net_pkt_set_appdatalen(pkt, len);
-
-	appdata = frag->data;
+	len += 1;
 
 	test_started = true;
 
-	DBG("Sending pkt %p TC %d priority %d\n", pkt, tc, prio);
+	DBG("Sending on TC %d priority %d\n", tc, prio);
 
 	send_priorities[net_tx_priority2tc(prio)][pkt_count - 1] = prio + 1;
 
-	ret = net_context_sendto(pkt,
+	ret = net_context_sendto(net_ctxs[tc].ctx, data, len,
 				 (struct sockaddr *)&dst_addr6,
 				 sizeof(struct sockaddr_in6),
-				 NULL, 0, NULL, NULL);
-	zassert_equal(ret, 0, "Send UDP pkt failed");
+				 NULL, K_NO_WAIT, NULL);
+	zassert_true(ret > 0, "Send UDP pkt failed");
 }
 
 static void traffic_class_send_priority(enum net_priority prio,
@@ -686,6 +672,8 @@ static void traffic_class_send_data_mix_all_2(void)
 
 static void recv_cb(struct net_context *context,
 		    struct net_pkt *pkt,
+		    union net_ip_header *ip_hdr,
+		    union net_proto_header *proto_hdr,
 		    int status,
 		    void *user_data)
 {
@@ -735,7 +723,8 @@ static void traffic_class_setup_recv(void)
 	recv_cb_called = false;
 
 	for (i = 0; i < NET_TC_RX_COUNT; i++) {
-		ret = net_context_recv(net_ctxs[i].ctx, recv_cb, 0, NULL);
+		ret = net_context_recv(net_ctxs[i].ctx, recv_cb,
+				       K_NO_WAIT, NULL);
 		zassert_equal(ret, 0,
 			      "[%d] Context recv UDP setup failed (%d)\n",
 			      i, ret);
@@ -748,37 +737,24 @@ static void traffic_class_recv_packets_with_prio(enum net_priority prio,
 	/* Start to receive data to each queue and verify that the data
 	 * is received in correct order.
 	 */
-	struct net_pkt *pkt;
-	struct net_buf *frag;
-	u8_t *appdata;
+	u8_t data[128];
 	int len, ret;
 	int tc = net_rx_priority2tc(prio);
 	const struct in6_addr *src_addr;
 	struct net_if_addr *ifaddr;
 	struct net_if *iface = NULL;
 
-	pkt = net_pkt_get_tx(net_ctxs[tc].ctx, K_FOREVER);
-	zassert_not_null(pkt, "Cannot get pkt for TC %d\n", tc);
-
-	frag = net_pkt_get_data(net_ctxs[tc].ctx, K_FOREVER);
-	zassert_not_null(frag, "Cannot get frag");
-	net_pkt_frag_add(pkt, frag);
-
 	/* Convert num to ascii */
-	net_buf_add_u8(frag, tc + 0x30);
-	len = 1;
+	data[0] = tc + 0x30;
+	len = strlen(test_data);
+	memcpy(data+1, test_data, strlen(test_data));
 
-	ret = strlen(test_data);
-	len += ret;
-	memcpy(net_buf_add(frag, ret), test_data, ret);
-	net_pkt_set_appdatalen(pkt, len);
-
-	appdata = frag->data;
+	len += 1;
 
 	test_started = true;
 	start_receiving = true;
 
-	DBG("Receiving pkt %p TC %d priority %d\n", pkt, tc, prio);
+	DBG("Receiving on TC %d priority %d\n", tc, prio);
 
 	recv_priorities[net_rx_priority2tc(prio)][pkt_count - 1] = prio + 1;
 
@@ -789,16 +765,14 @@ static void traffic_class_recv_packets_with_prio(enum net_priority prio,
 	zassert_not_null(ifaddr, "Cannot find source address");
 	zassert_not_null(iface, "Interface not found");
 
-	net_pkt_set_iface(pkt, iface);
-
 	/* We cannot use net_recv_data() here as the packet does not have
 	 * UDP header.
 	 */
-	ret = net_context_sendto(pkt,
+	ret = net_context_sendto(net_ctxs[tc].ctx, data, len,
 				 (struct sockaddr *)&dst_addr6,
 				 sizeof(struct sockaddr_in6),
-				 NULL, 0, NULL, NULL);
-	zassert_equal(ret, 0, "Send UDP pkt failed");
+				 NULL, K_NO_WAIT, NULL);
+	zassert_true(ret > 0, "Send UDP pkt failed");
 
 	/* Let the receiver to receive the packets */
 	k_sleep(K_MSEC(1));

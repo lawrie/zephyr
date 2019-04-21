@@ -7,6 +7,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
+source "$(CMAKE_BINARY_DIR)/Kconfig.modules"
+
 # Include these first so that any properties (e.g. defaults) below can be
 # overriden in *.defconfig files (by defining symbols in multiple locations).
 # After merging all the symbol definitions, Kconfig picks the first property
@@ -17,8 +19,6 @@
 #
 # Note: $ARCH and $BOARD_DIR might be glob patterns.
 source "$(BOARD_DIR)/Kconfig.defconfig"
-
-source "boards/shields/*/Kconfig.defconfig"
 
 source "$(SOC_DIR)/$(ARCH)/*/Kconfig.defconfig"
 
@@ -39,8 +39,6 @@ source "lib/Kconfig"
 source "subsys/Kconfig"
 
 source "ext/Kconfig"
-
-source "tests/Kconfig"
 
 menu "Build and Link Features"
 
@@ -84,9 +82,15 @@ config HAS_FLASH_LOAD_OFFSET
 	  This option is selected by targets having a FLASH_LOAD_OFFSET
 	  and FLASH_LOAD_SIZE.
 
-if !HAS_DTS
+config USE_CODE_PARTITION
+	bool "link into code-partition"
+	depends on HAS_FLASH_LOAD_OFFSET
+	help
+	  When selected application will be linked into chosen code-partition.
+
 config FLASH_LOAD_OFFSET
 	hex "Kernel load offset"
+	default $(dt_hex_val,DT_CODE_PARTITION_OFFSET) if USE_CODE_PARTITION
 	default 0
 	depends on HAS_FLASH_LOAD_OFFSET
 	help
@@ -99,6 +103,7 @@ config FLASH_LOAD_OFFSET
 
 config FLASH_LOAD_SIZE
 	hex "Kernel load size"
+	default $(dt_hex_val,DT_CODE_PARTITION_SIZE) if USE_CODE_PARTITION
 	default 0
 	depends on HAS_FLASH_LOAD_OFFSET
 	help
@@ -108,10 +113,10 @@ config FLASH_LOAD_SIZE
 	  the device.
 
 	  If unsure, leave at the default value 0.
-endif
 
 config TEXT_SECTION_OFFSET
-	hex "TEXT section offset"
+	hex
+	prompt "TEXT section offset" if !BOOTLOADER_MCUBOOT
 	default 0x200 if BOOTLOADER_MCUBOOT
 	default 0
 	help
@@ -332,7 +337,7 @@ config BOOTLOADER_SRAM_SIZE
 	int "SRAM reserved for bootloader"
 	default 16
 	depends on !XIP || IS_BOOTLOADER
-	depends on ARM
+	depends on ARM || XTENSA
 	help
 	  This option specifies the amount of SRAM (measure in kB) reserved for
 	  a bootloader image, when either:
@@ -342,6 +347,7 @@ config BOOTLOADER_SRAM_SIZE
 
 config BOOTLOADER_MCUBOOT
 	bool "MCUboot bootloader support"
+	select USE_CODE_PARTITION
 	help
 	  This option signifies that the target uses MCUboot as a bootloader,
 	  or in other words that the image is to be chain-loaded by MCUboot.
@@ -390,7 +396,7 @@ config BOOTLOADER_UNKNOWN
 config BOOTLOADER_CONTEXT_RESTORE
 	bool "Boot loader has context restore support"
 	default y
-	depends on SYS_POWER_DEEP_SLEEP && BOOTLOADER_CONTEXT_RESTORE_SUPPORTED
+	depends on SYS_POWER_DEEP_SLEEP_STATES && BOOTLOADER_CONTEXT_RESTORE_SUPPORTED
 	help
 	  This option signifies that the target has a bootloader
 	  that restores CPU context upon resuming from deep sleep
@@ -403,4 +409,13 @@ config REBOOT
 	  Enable the sys_reboot() API. Enabling this can drag in other subsystems
 	  needed to perform a "safe" reboot (e.g. SYSTEM_CLOCK_DISABLE, to stop the
 	  system clock before issuing a reset).
+
+config MISRA_SANE
+	bool "MISRA standards compliance features"
+	help
+	  Causes the source code to build in "MISRA" mode, which
+	  disallows some otherwise-permitted features of the C
+	  standard for safety reasons.  Specifically variable length
+	  arrays are not permitted (and gcc will enforce this).
+
 endmenu

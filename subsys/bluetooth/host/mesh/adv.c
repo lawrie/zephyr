@@ -45,13 +45,10 @@
 #define ADV_INT_DEFAULT_MS 100
 #define ADV_INT_FAST_MS    20
 
-/* TinyCrypt PRNG consumes a lot of stack space, so we need to have
- * an increased call stack whenever it's used.
- */
 #if defined(CONFIG_BT_HOST_CRYPTO)
-#define ADV_STACK_SIZE 768
+#define ADV_STACK_SIZE 1024
 #else
-#define ADV_STACK_SIZE 512
+#define ADV_STACK_SIZE 768
 #endif
 
 static K_FIFO_DEFINE(adv_queue);
@@ -103,7 +100,7 @@ static inline void adv_send(struct net_buf *buf)
 	struct bt_data ad;
 	int err;
 
-	adv_int = max(adv_int_min,
+	adv_int = MAX(adv_int_min,
 		      BT_MESH_TRANSMIT_INT(BT_MESH_ADV(buf)->xmit));
 	duration = (MESH_SCAN_WINDOW_MS +
 		    ((BT_MESH_TRANSMIT_COUNT(BT_MESH_ADV(buf)->xmit) + 1) *
@@ -122,7 +119,7 @@ static inline void adv_send(struct net_buf *buf)
 	if (IS_ENABLED(CONFIG_BT_MESH_DEBUG_USE_ID_ADDR)) {
 		param.options = BT_LE_ADV_OPT_USE_IDENTITY;
 	} else {
-		param.options = 0;
+		param.options = 0U;
 	}
 
 	param.id = BT_ID_DEFAULT;
@@ -214,6 +211,11 @@ struct net_buf *bt_mesh_adv_create_from_pool(struct net_buf_pool *pool,
 	struct bt_mesh_adv *adv;
 	struct net_buf *buf;
 
+	if (atomic_test_bit(bt_mesh.flags, BT_MESH_SUSPENDED)) {
+		BT_WARN("Refusing to allocate buffer while suspended");
+		return NULL;
+	}
+
 	buf = net_buf_alloc(pool, timeout);
 	if (!buf) {
 		return NULL;
@@ -265,7 +267,7 @@ static void bt_mesh_scan_cb(const bt_addr_le_t *addr, s8_t rssi,
 
 		len = net_buf_simple_pull_u8(buf);
 		/* Check for early termination */
-		if (len == 0) {
+		if (len == 0U) {
 			return;
 		}
 
@@ -306,6 +308,7 @@ void bt_mesh_adv_init(void)
 	k_thread_create(&adv_thread_data, adv_thread_stack,
 			K_THREAD_STACK_SIZEOF(adv_thread_stack), adv_thread,
 			NULL, NULL, NULL, K_PRIO_COOP(7), 0, K_NO_WAIT);
+	k_thread_name_set(&adv_thread_data, "BT Mesh adv");
 }
 
 int bt_mesh_scan_enable(void)
@@ -315,15 +318,30 @@ int bt_mesh_scan_enable(void)
 			.filter_dup = BT_HCI_LE_SCAN_FILTER_DUP_DISABLE,
 			.interval   = MESH_SCAN_INTERVAL,
 			.window     = MESH_SCAN_WINDOW };
+	int err;
 
 	BT_DBG("");
 
-	return bt_le_scan_start(&scan_param, bt_mesh_scan_cb);
+	err = bt_le_scan_start(&scan_param, bt_mesh_scan_cb);
+	if (err && err != -EALREADY) {
+		BT_ERR("starting scan failed (err %d)", err);
+		return err;
+	}
+
+	return 0;
 }
 
 int bt_mesh_scan_disable(void)
 {
+	int err;
+
 	BT_DBG("");
 
-	return bt_le_scan_stop();
+	err = bt_le_scan_stop();
+	if (err && err != -EALREADY) {
+		BT_ERR("stopping scan failed (err %d)", err);
+		return err;
+	}
+
+	return 0;
 }

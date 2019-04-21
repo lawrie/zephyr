@@ -98,7 +98,7 @@ static inline int lsm6dsl_reboot(struct device *dev)
 	}
 
 	/* Wait sensor turn-on time as per datasheet */
-	k_busy_wait(35 * USEC_PER_MSEC);
+	k_busy_wait(USEC_PER_MSEC * 35U);
 
 	return 0;
 }
@@ -282,7 +282,7 @@ static int lsm6dsl_gyro_config(struct device *dev, enum sensor_channel chan,
 	switch (attr) {
 #ifdef LSM6DSL_GYRO_FS_RUNTIME
 	case SENSOR_ATTR_FULL_SCALE:
-		return lsm6dsl_gyro_range_set(dev, sensor_ms2_to_g(val));
+		return lsm6dsl_gyro_range_set(dev, sensor_rad_to_degrees(val));
 #endif
 #ifdef LSM6DSL_GYRO_ODR_RUNTIME
 	case SENSOR_ATTR_SAMPLING_FREQUENCY:
@@ -773,11 +773,7 @@ static int lsm6dsl_init_chip(struct device *dev)
 }
 
 static struct lsm6dsl_config lsm6dsl_config = {
-#ifdef CONFIG_LSM6DSL_SPI
-	.comm_master_dev_name = DT_LSM6DSL_SPI_MASTER_DEV_NAME,
-#else
-	.comm_master_dev_name = DT_LSM6DSL_I2C_MASTER_DEV_NAME,
-#endif
+	.comm_master_dev_name = DT_ST_LSM6DSL_0_BUS_NAME,
 };
 
 static int lsm6dsl_init(struct device *dev)
@@ -792,7 +788,7 @@ static int lsm6dsl_init(struct device *dev)
 		return -EINVAL;
 	}
 
-#ifdef CONFIG_LSM6DSL_SPI
+#ifdef DT_ST_LSM6DSL_BUS_SPI
 	lsm6dsl_spi_init(dev);
 #else
 	lsm6dsl_i2c_init(dev);
@@ -823,6 +819,6 @@ static int lsm6dsl_init(struct device *dev)
 
 static struct lsm6dsl_data lsm6dsl_data;
 
-DEVICE_AND_API_INIT(lsm6dsl, DT_LSM6DSL_DEV_NAME, lsm6dsl_init,
+DEVICE_AND_API_INIT(lsm6dsl, DT_ST_LSM6DSL_0_LABEL, lsm6dsl_init,
 		    &lsm6dsl_data, &lsm6dsl_config, POST_KERNEL,
 		    CONFIG_SENSOR_INIT_PRIORITY, &lsm6dsl_api_funcs);

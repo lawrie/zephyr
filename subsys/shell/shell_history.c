@@ -7,12 +7,6 @@
 #include <shell/shell_history.h>
 #include <string.h>
 
-struct shell_history_item {
-	sys_dnode_t dnode;
-	u16_t len;
-	char data[1];
-};
-
 void shell_history_mode_exit(struct shell_history *history)
 {
 	history->current = NULL;
@@ -25,14 +19,14 @@ bool shell_history_get(struct shell_history *history, bool up,
 	sys_dnode_t *l_item; /* list item */
 
 	if (sys_dlist_is_empty(&history->list)) {
-		*len = 0;
+		*len = 0U;
 		return false;
 	}
 
 	if (!up) { /* button down */
 		if (history->current == NULL) {
 			/* Not in history mode. It is started by up button. */
-			*len = 0;
+			*len = 0U;
 
 			return false;
 		}
@@ -56,7 +50,7 @@ bool shell_history_get(struct shell_history *history, bool up,
 		return true;
 	}
 
-	*len = 0;
+	*len = 0U;
 	return false;
 }
 

@@ -173,22 +173,18 @@ static void start_image(struct mb_display *disp, const struct mb_image *img)
 
 static inline void update_pins(struct mb_display *disp, u32_t val)
 {
-	if (IS_ENABLED(CONFIG_MICROBIT_DISPLAY_PIN_GRANULARITY)) {
-		u32_t pin, prev = (disp->cur + 2) % 3;
+	u32_t pin, prev = (disp->cur + 2) % 3;
 
-		/* Disable the previous row */
-		gpio_pin_write(disp->dev, ROW_PIN(prev), 0);
+	/* Disable the previous row */
+	gpio_pin_write(disp->dev, ROW_PIN(prev), 0);
 
-		/* Set the column pins to their correct values */
-		for (pin = LED_COL1_GPIO_PIN; pin <= LED_COL9_GPIO_PIN; pin++) {
-			gpio_pin_write(disp->dev, pin, !!(val & BIT(pin)));
-		}
-
-		/* Enable the new row */
-		gpio_pin_write(disp->dev, ROW_PIN(disp->cur), 1);
-	} else {
-		gpio_port_write(disp->dev, val);
+	/* Set the column pins to their correct values */
+	for (pin = LED_COL1_GPIO_PIN; pin <= LED_COL9_GPIO_PIN; pin++) {
+		gpio_pin_write(disp->dev, pin, !!(val & BIT(pin)));
 	}
+
+	/* Enable the new row */
+	gpio_pin_write(disp->dev, ROW_PIN(disp->cur), 1);
 }
 
 static void reset_display(struct mb_display *disp)
@@ -312,7 +308,7 @@ static void show_row(struct k_timer *timer)
 	update_pins(disp, disp->row[disp->cur]);
 	disp->cur = (disp->cur + 1) % DISPLAY_ROWS;
 
-	if (disp->cur == 0 && disp->expiry != K_FOREVER &&
+	if (disp->cur == 0U && disp->expiry != K_FOREVER &&
 	    k_uptime_get() > disp->expiry) {
 		if (disp->scroll) {
 			update_scroll(disp);
@@ -330,7 +326,7 @@ static void clear_display(struct k_timer *timer)
 }
 
 static struct mb_display display = {
-	.timer = _K_TIMER_INITIALIZER(display.timer, show_row, clear_display),
+	.timer = Z_TIMER_INITIALIZER(display.timer, show_row, clear_display),
 };
 
 static void start_scroll(struct mb_display *disp, s32_t duration)

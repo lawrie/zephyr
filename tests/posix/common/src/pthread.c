@@ -12,7 +12,7 @@
 #define N_THR_E 3
 #define N_THR_T 4
 #define BOUNCES 64
-#define STACKS 1024
+#define STACKS (1024 + CONFIG_TEST_EXTRA_STACKSIZE)
 #define THREAD_PRIORITY 3
 #define ONE_SECOND 1
 
@@ -44,6 +44,7 @@ static int curr_bounce_thread;
 
 static int barrier_failed;
 static int barrier_done[N_THR_E];
+static int barrier_return[N_THR_E];
 
 /* First phase bounces execution between two threads using a condition
  * variable, continuously testing that no other thread is mucking with
@@ -66,7 +67,7 @@ void *thread_top_exec(void *p1)
 
 	pthread_getschedparam(pthread_self(), &policy, &schedparam);
 	printk("Thread %d starting with scheduling policy %d & priority %d\n",
-		 id, policy, schedparam.priority);
+		 id, policy, schedparam.sched_priority);
 	/* Try a double-lock here to exercise the failing case of
 	 * trylock.  We don't support RECURSIVE locks, so this is
 	 * guaranteed to fail.
@@ -93,7 +94,7 @@ void *thread_top_exec(void *p1)
 			pthread_cond_wait(&cvar0, &lock);
 		} else {
 			pthread_mutex_unlock(&lock);
-			usleep(500 * USEC_PER_MSEC);
+			usleep(USEC_PER_MSEC * 500U);
 			pthread_mutex_lock(&lock);
 		}
 
@@ -138,7 +139,7 @@ void *thread_top_exec(void *p1)
 			sem_post(&main_sem);
 		}
 	}
-	pthread_barrier_wait(&barrier);
+	barrier_return[id] = pthread_barrier_wait(&barrier);
 	barrier_done[id] = 1;
 	sem_post(&main_sem);
 	pthread_exit(p1);
@@ -187,7 +188,7 @@ void *thread_top_term(void *p1)
 	int val = (u32_t) p1;
 	struct sched_param param, getschedparam;
 
-	param.priority = N_THR_T - (s32_t) p1;
+	param.sched_priority = N_THR_T - (s32_t) p1;
 
 	self = pthread_self();
 
@@ -199,7 +200,7 @@ void *thread_top_term(void *p1)
 			"Unable to get thread priority!");
 
 	printk("Thread %d starting with a priority of %d\n", (s32_t) p1,
-			getschedparam.priority);
+			getschedparam.sched_priority);
 
 	if (val % 2) {
 		ret = pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &oldstate);
@@ -231,15 +232,16 @@ void test_posix_pthread_execution(void)
 	int schedpolicy = SCHED_FIFO;
 	void *retval, *stackaddr;
 	size_t stacksize;
+	int serial_threads = 0;
 
 	sem_init(&main_sem, 0, 1);
-	schedparam.priority = CONFIG_NUM_COOP_PRIORITIES - 1;
+	schedparam.sched_priority = CONFIG_NUM_COOP_PRIORITIES - 1;
 	min_prio = sched_get_priority_min(schedpolicy);
 	max_prio = sched_get_priority_max(schedpolicy);
 
 	ret = (min_prio < 0 || max_prio < 0 ||
-			schedparam.priority < min_prio ||
-			schedparam.priority > max_prio);
+			schedparam.sched_priority < min_prio ||
+			schedparam.sched_priority > max_prio);
 
 	/* TESTPOINT: Check if scheduling priority is valid */
 	zassert_false(ret,
@@ -310,8 +312,9 @@ void test_posix_pthread_execution(void)
 
 		pthread_attr_setschedparam(&attr[i], &schedparam);
 		pthread_attr_getschedparam(&attr[i], &getschedparam);
-		zassert_equal(schedparam.priority, getschedparam.priority,
-				"scheduling priorities do not match!");
+		zassert_equal(schedparam.sched_priority,
+			      getschedparam.sched_priority,
+			      "scheduling priorities do not match!");
 
 		ret = pthread_create(&newthread[i], &attr[i], thread_top_exec,
 				(void *)i);
@@ -345,6 +348,15 @@ void test_posix_pthread_execution(void)
 		pthread_join(newthread[i], &retval);
 	}
 
+	for (i = 0; i < N_THR_E; i++) {
+		if (barrier_return[i] == PTHREAD_BARRIER_SERIAL_THREAD) {
+			++serial_threads;
+		}
+	}
+
+	/* TESTPOINT: Check only one PTHREAD_BARRIER_SERIAL_THREAD returned. */
+	zassert_true(serial_threads == 1, "Bungled barrier return value(s)");
+
 	printk("Barrier test OK\n");
 }
 
@@ -372,7 +384,7 @@ void test_posix_pthread_termination(void)
 						    PTHREAD_CREATE_DETACHED);
 		}
 
-		schedparam.priority = 2;
+		schedparam.sched_priority = 2;
 		pthread_attr_setschedparam(&attr[i], &schedparam);
 		pthread_attr_setstack(&attr[i], &stack_t[i][0], STACKS);
 		ret = pthread_create(&newthread[i], &attr[i], thread_top_term,
@@ -390,7 +402,7 @@ void test_posix_pthread_termination(void)
 	zassert_equal(ret, EINVAL, "invalid policy set!");
 
 	/* TESTPOINT: Try setting invalid priority */
-	schedparam.priority = PRIO_INVALID;
+	schedparam.sched_priority = PRIO_INVALID;
 	ret = pthread_setschedparam(newthread[0], SCHED_RR, &schedparam);
 	zassert_equal(ret, EINVAL, "invalid priority set!");
 

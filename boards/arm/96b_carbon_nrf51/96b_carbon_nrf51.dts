@@ -15,6 +15,7 @@
 	chosen {
 		zephyr,console = &uart0;
 		zephyr,shell-uart = &uart0;
+		zephyr,bt-mon-uart = &uart0;
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
 	};
@@ -42,9 +43,17 @@
 };
 
 &spi1 {
+	compatible = "nordic,nrf-spis";
 	status = "ok";
 	sck-pin = <7>;
 	mosi-pin = <0>;
 	miso-pin = <30>;
 	csn-pin = <25>;
+	def-char = <0x00>;
+
+	bt-hci@0 {
+		compatible = "zephyr,bt-hci-spi-slave";
+		reg = <0>;
+		irq-gpios = <&gpio0 28 0>;
+	};
 };

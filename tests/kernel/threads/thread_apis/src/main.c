@@ -16,6 +16,7 @@
 #include <ztest.h>
 #include <kernel_structs.h>
 #include <kernel.h>
+#include <kernel_internal.h>
 #include <string.h>
 
 extern void test_threads_spawn_params(void);
@@ -33,16 +34,18 @@ extern void test_essential_thread_operation(void);
 extern void test_threads_priority_set(void);
 extern void test_delayed_thread_abort(void);
 extern void test_k_thread_foreach(void);
+extern void test_threads_cpu_mask(void);
 
-__kernel struct k_thread tdata;
-#define STACK_SIZE (256 + CONFIG_TEST_EXTRA_STACKSIZE)
+struct k_thread tdata;
+#define STACK_SIZE (512 + CONFIG_TEST_EXTRA_STACKSIZE)
 K_THREAD_STACK_DEFINE(tstack, STACK_SIZE);
+size_t tstack_size = K_THREAD_STACK_SIZEOF(tstack);
 
 /*local variables*/
 static K_THREAD_STACK_DEFINE(tstack_custom, STACK_SIZE);
 static K_THREAD_STACK_DEFINE(tstack_name, STACK_SIZE);
-__kernel static struct k_thread tdata_custom;
-__kernel static struct k_thread tdata_name;
+static struct k_thread tdata_custom;
+static struct k_thread tdata_name;
 
 static int main_prio;
 
@@ -165,7 +168,7 @@ static void umode_entry(void *thread_id, void *p2, void *p3)
 	ARG_UNUSED(p2);
 	ARG_UNUSED(p3);
 
-	if (!_is_thread_essential() &&
+	if (!z_is_thread_essential() &&
 	    (k_current_get() == (k_tid_t)thread_id)) {
 		ztest_test_pass();
 	} else {
@@ -182,9 +185,9 @@ static void umode_entry(void *thread_id, void *p2, void *p3)
  */
 void test_user_mode(void)
 {
-	_thread_essential_set();
+	z_thread_essential_set();
 
-	zassert_true(_is_thread_essential(), "Thread isn't set"
+	zassert_true(z_is_thread_essential(), "Thread isn't set"
 		     " as essential\n");
 
 	k_thread_user_mode_enter((k_thread_entry_t)umode_entry,
@@ -225,7 +228,8 @@ void test_main(void)
 			 ztest_user_unit_test(test_customdata_get_set_preempt),
 			 ztest_unit_test(test_k_thread_foreach),
 			 ztest_unit_test(test_thread_name_get_set),
-			 ztest_unit_test(test_user_mode)
+			 ztest_unit_test(test_user_mode),
+			 ztest_unit_test(test_threads_cpu_mask)
 			 );
 
 	ztest_run_test_suite(threads_lifecycle);

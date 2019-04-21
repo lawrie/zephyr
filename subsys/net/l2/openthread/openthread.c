@@ -24,7 +24,10 @@ LOG_MODULE_REGISTER(net_l2_openthread, CONFIG_OPENTHREAD_L2_LOG_LEVEL);
 #include <openthread/message.h>
 #include <openthread/tasklet.h>
 #include <openthread/thread.h>
+#include <openthread/dataset.h>
+#include <openthread/joiner.h>
 #include <openthread-system.h>
+#include <openthread-config-generic.h>
 
 #include <platform-zephyr.h>
 
@@ -108,51 +111,43 @@ void ot_receive_handler(otMessage *aMessage, void *context)
 	u16_t offset = 0U;
 	u16_t read_len;
 	struct net_pkt *pkt;
-	struct net_buf *prev_buf = NULL;
+	struct net_buf *pkt_buf;
 
-	pkt = net_pkt_get_reserve_rx(K_NO_WAIT);
+	pkt = net_pkt_rx_alloc_with_buffer(ot_context->iface,
+					   otMessageGetLength(aMessage),
+					   AF_UNSPEC, 0, K_NO_WAIT);
 	if (!pkt) {
 		NET_ERR("Failed to reserve net pkt");
 		goto out;
 	}
 
+	pkt_buf = pkt->buffer;
+
 	while (1) {
-		struct net_buf *pkt_buf;
-
-		pkt_buf = net_pkt_get_frag(pkt, K_NO_WAIT);
-		if (!pkt_buf) {
-			NET_ERR("Failed to get fragment buf");
-			net_pkt_unref(pkt);
-			goto out;
-		}
-
 		read_len = otMessageRead(aMessage,
 					 offset,
 					 pkt_buf->data,
 					 net_buf_tailroom(pkt_buf));
-
 		if (!read_len) {
-			net_buf_unref(pkt_buf);
 			break;
 		}
 
 		net_buf_add(pkt_buf, read_len);
 
-		if (!prev_buf) {
-			net_pkt_frag_insert(pkt, pkt_buf);
-		} else {
-			net_buf_frag_insert(prev_buf, pkt_buf);
-		}
-
-		prev_buf = pkt_buf;
-
 		offset += read_len;
+
+		if (!net_buf_tailroom(pkt_buf)) {
+			pkt_buf = pkt_buf->frags;
+			if (!pkt_buf) {
+				break;
+			}
+		}
 	}
 
 	NET_DBG("Injecting Ip6 packet to Zephyr net stack");
 
 #if defined(CONFIG_OPENTHREAD_L2_DEBUG_DUMP_IPV6)
-	net_hexdump_frags("Received IPv6 packet", pkt, true);
+	net_pkt_hexdump(pkt, "Received IPv6 packet");
 #endif
 
 	if (!pkt_list_is_full(ot_context)) {
@@ -172,6 +167,21 @@ out:
 	}
 
 	otMessageFree(aMessage);
+}
+
+void ot_joiner_start_handler(otError error, void *context)
+{
+	struct openthread_context *ot_context = context;
+
+	switch (error) {
+	case OT_ERROR_NONE:
+		NET_INFO("Join success");
+		otThreadSetEnabled(ot_context->instance, true);
+		break;
+	default:
+		NET_ERR("Join failed [%d]", error);
+		break;
+	}
 }
 
 static void openthread_process(void *context, void *arg2, void *arg3)
@@ -199,7 +209,7 @@ static enum net_verdict openthread_recv(struct net_if *iface,
 		NET_DBG("Got injected Ip6 packet, "
 			    "sending to upper layers");
 #if defined(CONFIG_OPENTHREAD_L2_DEBUG_DUMP_IPV6)
-		net_hexdump_frags("Injected IPv6 packet", pkt, true);
+		net_pkt_hexdump(pkt, "Injected IPv6 packet");
 #endif
 		return NET_CONTINUE;
 	}
@@ -208,15 +218,15 @@ static enum net_verdict openthread_recv(struct net_if *iface,
 
 	otRadioFrame recv_frame;
 
-	recv_frame.mPsdu = net_buf_frag_last(pkt->frags)->data;
+	recv_frame.mPsdu = net_buf_frag_last(pkt->buffer)->data;
 	/* Length inc. CRC. */
-	recv_frame.mLength = net_buf_frags_len(pkt->frags);
+	recv_frame.mLength = net_buf_frags_len(pkt->buffer);
 	recv_frame.mChannel = platformRadioChannelGet(ot_context->instance);
 	recv_frame.mInfo.mRxInfo.mLqi = net_pkt_ieee802154_lqi(pkt);
 	recv_frame.mInfo.mRxInfo.mRssi = net_pkt_ieee802154_rssi(pkt);
 
 #if defined(CONFIG_OPENTHREAD_L2_DEBUG_DUMP_15_4)
-	net_hexdump_frags("Received 802.15.4 frame", pkt, true);
+	net_pkt_hexdump(pkt, "Received 802.15.4 frame");
 #endif
 
 #if OPENTHREAD_ENABLE_DIAG
@@ -239,7 +249,7 @@ int openthread_send(struct net_if *iface, struct net_pkt *pkt)
 {
 	struct openthread_context *ot_context = net_if_l2_data(iface);
 	int len = net_pkt_get_len(pkt);
-	struct net_buf *frag;
+	struct net_buf *buf;
 	otMessage *message;
 	otMessageSettings settings;
 
@@ -252,9 +262,9 @@ int openthread_send(struct net_if *iface, struct net_pkt *pkt)
 		goto exit;
 	}
 
-	for (frag = pkt->frags; frag; frag = frag->frags) {
-		if (otMessageAppend(message, frag->data,
-				    frag->len) != OT_ERROR_NONE) {
+	for (buf = pkt->buffer; buf; buf = buf->frags) {
+		if (otMessageAppend(message, buf->data,
+				    buf->len) != OT_ERROR_NONE) {
 
 			NET_ERR("Error while appending to otMessage");
 			otMessageFree(message);
@@ -268,7 +278,7 @@ int openthread_send(struct net_if *iface, struct net_pkt *pkt)
 	}
 
 #if defined(CONFIG_OPENTHREAD_L2_DEBUG_DUMP_IPV6)
-	net_hexdump_frags("Sent IPv6 packet", pkt, true);
+	net_pkt_hexdump(pkt, "Sent IPv6 packet");
 #endif
 
 exit:
@@ -286,6 +296,28 @@ enum net_verdict ieee802154_radio_handle_ack(struct net_if *iface,
 
 	return NET_CONTINUE;
 }
+
+#if defined(CONFIG_OPENTHREAD_JOINER_AUTOSTART)
+void openthread_joiner_autostart(struct net_if *iface)
+{
+	struct openthread_context *ot_context = net_if_l2_data(iface);
+	otError error;
+
+	if (!otDatasetIsCommissioned(ot_context->instance)) {
+		error = otJoinerStart(ot_context->instance,
+				CONFIG_OPENTHREAD_JOINER_PSKD, NULL,
+				PACKAGE_NAME, CONFIG_OPENTHREAD_PLATFORM_INFO,
+				PACKAGE_VERSION, NULL,
+				&ot_joiner_start_handler, ot_context);
+
+		if (error != OT_ERROR_NONE) {
+			NET_ERR("Failed to start joiner [%d]", error);
+		}
+	} else {
+		otThreadSetEnabled(ot_context->instance, true);
+	}
+}
+#endif
 
 static int openthread_init(struct net_if *iface)
 {
@@ -310,6 +342,7 @@ static int openthread_init(struct net_if *iface)
 	NET_INFO("OpenThread version: %s",
 		    otGetVersionString());
 
+#if !defined(CONFIG_OPENTHREAD_JOINER_AUTOSTART)
 	otThreadSetNetworkName(ot_context->instance, CONFIG_OPENTHREAD_NETWORK_NAME);
 	NET_INFO("Network name:   %s",
 		 log_strdup(otThreadGetNetworkName(ot_context->instance)));
@@ -317,8 +350,10 @@ static int openthread_init(struct net_if *iface)
 	otLinkSetChannel(ot_context->instance, CONFIG_OPENTHREAD_CHANNEL);
 	otLinkSetPanId(ot_context->instance, CONFIG_OPENTHREAD_PANID);
 	otThreadSetExtendedPanId(ot_context->instance, &xpanid);
+#endif
+
 	otIp6SetEnabled(ot_context->instance, true);
-	otThreadSetEnabled(ot_context->instance, true);
+
 	otIp6SetReceiveFilterEnabled(ot_context->instance, true);
 	otIp6SetReceiveCallback(ot_context->instance,
 				ot_receive_handler, ot_context);
@@ -338,6 +373,12 @@ static int openthread_init(struct net_if *iface)
 				 ot_context, NULL, NULL,
 				 OT_PRIORITY, 0, K_NO_WAIT);
 	k_thread_name_set(&ot_thread_data, "openthread");
+
+#if !defined(CONFIG_OPENTHREAD_JOINER_AUTOSTART)
+	otThreadSetEnabled(ot_context->instance, true);
+#else
+	openthread_joiner_autostart(iface);
+#endif
 
 	return 0;
 }

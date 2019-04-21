@@ -20,7 +20,7 @@
 	GTEXT(__start)
 
 	/* externs */
-	GTEXT(_Cstart)
+	GTEXT(z_cstart)
 
 	GDATA(_idt_base_address)
 	GDATA(_interrupt_stack)
@@ -38,8 +38,8 @@
 	GDATA(__start_time_stamp)
 #endif
 
-#ifdef CONFIG_SYS_POWER_DEEP_SLEEP
-	GTEXT(sys_resume_from_deep_sleep)
+#ifdef CONFIG_SYS_POWER_DEEP_SLEEP_STATES
+	GTEXT(_sys_resume_from_deep_sleep)
 #endif
 
 #ifdef CONFIG_REALMODE
@@ -247,7 +247,7 @@ __csSet:
 	/*
 	 * Set the stack pointer to the area used for the interrupt stack.
 	 * Note this stack is used during the execution of __start() and
-	 * _Cstart() until the multi-tasking kernel is initialized.  The
+	 * z_cstart() until the multi-tasking kernel is initialized.  The
 	 * dual-purposing of this area of memory is safe since
 	 * interrupts are disabled until the first context switch.
 	 *
@@ -255,13 +255,13 @@ __csSet:
 	 * the ISR stack size are some multiple of STACK_ALIGN, which
 	 * is at least 4.
 	 *
-	 * This is also used to call the sys_resume_from_deep_sleep()
+	 * This is also used to call the _sys_resume_from_deep_sleep()
 	 * routine to avoid memory corruption if the system is resuming from
-	 * deep sleep. It is important that sys_resume_from_deep_sleep()
+	 * deep sleep. It is important that _sys_resume_from_deep_sleep()
 	 * restores the stack pointer to what it was at deep sleep before
          * enabling interrupts.  This is necessary to avoid
 	 * interfering with interrupt handler use of this stack.
-	 * If it is a cold boot then sys_resume_from_deep_sleep() should
+	 * If it is a cold boot then _sys_resume_from_deep_sleep() should
 	 * not do anything and must return immediately.
 	 */
 #ifdef CONFIG_INIT_STACKS
@@ -284,10 +284,10 @@ __csSet:
 #else
 	addl	$CONFIG_ISR_STACK_SIZE, %esp
 #endif
-#if defined(CONFIG_SYS_POWER_DEEP_SLEEP) && \
+#if defined(CONFIG_SYS_POWER_DEEP_SLEEP_STATES) && \
              !defined(CONFIG_BOOTLOADER_CONTEXT_RESTORE)
 	/*
-	 * Invoke sys_resume_from_deep_sleep() hook to handle resume from
+	 * Invoke _sys_resume_from_deep_sleep() hook to handle resume from
 	 * deep sleep. It should first check whether system is recovering from
 	 * deep sleep state. If it is, then this function should restore
 	 * states and resume at the point system went to deep sleep.
@@ -298,7 +298,7 @@ __csSet:
 	 * return and execution falls through to cold boot path.
 	 */
 
-	call sys_resume_from_deep_sleep
+	call _sys_resume_from_deep_sleep
 
 #endif
 
@@ -314,13 +314,13 @@ __csSet:
 
 	call	_x86_data_copy
 
-#ifdef CONFIG_APPLICATION_MEMORY
-	movl	$__app_data_ram_start, %edi /* DATA in RAM (dest) */
-	movl	$__app_data_rom_start, %esi /* DATA in ROM (src) */
-	movl	$__app_data_num_words, %ecx /* Size of DATA in quad bytes */
+#ifdef CONFIG_USERSPACE
+	movl	$_app_smem_start, %edi /* DATA in RAM (dest) */
+	movl	$_app_smem_rom_start, %esi /* DATA in ROM (src) */
+	movl	$_app_smem_num_words, %ecx /* Size of DATA in quad bytes */
 
 	call	_x86_data_copy
-#endif /* CONFIG_APPLICATION_MEMORY */
+#endif /* CONFIG_USERSPACE */
 
 #endif /* CONFIG_XIP */
 
@@ -334,11 +334,11 @@ __csSet:
 	movl	$__bss_num_words, %ecx	/* number of quad bytes in .bss */
 	call	_x86_bss_zero
 
-#ifdef CONFIG_APPLICATION_MEMORY
-	movl	$__app_bss_start, %edi		/* load app BSS start address */
-	movl	$__app_bss_num_words, %ecx	/* number of quad bytes */
+#ifdef CONFIG_COVERAGE_GCOV
+	movl	$__gcov_bss_start, %edi	/* load gcov BSS start address */
+	movl	$__gcov_bss_num_words, %ecx	/* number of quad bytes */
 	call	_x86_bss_zero
-#endif
+#endif /* CONFIG_COVERAGE_GCOV */
 
 #ifdef CONFIG_GDT_DYNAMIC
 	/* activate RAM-based Global Descriptor Table (GDT) */
@@ -348,15 +348,10 @@ __csSet:
 #ifdef CONFIG_X86_MMU
 
 	/* load the page directory address into the registers*/
-	movl $__mmu_tables_start, %eax
+	movl $z_x86_kernel_pdpt, %eax
 	movl %eax, %cr3
 
-#ifndef CONFIG_X86_PAE_MODE
-	/*Set CR4.PAE = 0 (5th bit in CR4*/
-	movl %cr4, %eax
-	andl $CR4_PAE_DISABLE, %eax
-	movl %eax, %cr4
-#else
+	/* Enable PAE */
 	movl %cr4, %eax
 	orl $CR4_PAE_ENABLE, %eax
 	movl %eax, %cr4
@@ -366,7 +361,7 @@ __csSet:
 	rdmsr
 	orl $0x800, %eax
 	wrmsr
-#endif
+
 	/* Enable paging (CR0.PG, bit 31) / write protect (CR0.WP, bit 16) */
 	movl %cr0, %eax
 	orl $CR0_PG_WP_ENABLE, %eax
@@ -382,7 +377,7 @@ __csSet:
 
 	/* Jump to C portion of kernel initialization and never return */
 
-	jmp	_Cstart
+	jmp	z_cstart
 
 
 _x86_bss_zero:

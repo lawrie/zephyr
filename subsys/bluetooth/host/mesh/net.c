@@ -412,7 +412,7 @@ u8_t bt_mesh_net_flags(struct bt_mesh_subnet *sub)
 		flags |= BT_MESH_NET_FLAG_KR;
 	}
 
-	if (bt_mesh.iv_update) {
+	if (atomic_test_bit(bt_mesh.flags, BT_MESH_IVU_IN_PROGRESS)) {
 		flags |= BT_MESH_NET_FLAG_IVU;
 	}
 
@@ -448,10 +448,6 @@ int bt_mesh_net_create(u16_t idx, u8_t flags, const u8_t key[16],
 
 	BT_DBG("NetKey %s", bt_hex(key, 16));
 
-	if (bt_mesh.valid) {
-		return -EALREADY;
-	}
-
 	(void)memset(msg_cache, 0, sizeof(msg_cache));
 	msg_cache_next = 0U;
 
@@ -472,7 +468,6 @@ int bt_mesh_net_create(u16_t idx, u8_t flags, const u8_t key[16],
 		}
 	}
 
-	bt_mesh.valid = 1U;
 	sub->net_idx = idx;
 
 	if (IS_ENABLED(CONFIG_BT_MESH_GATT_PROXY)) {
@@ -482,7 +477,8 @@ int bt_mesh_net_create(u16_t idx, u8_t flags, const u8_t key[16],
 	}
 
 	bt_mesh.iv_index = iv_index;
-	bt_mesh.iv_update = BT_MESH_IV_UPDATE(flags);
+	atomic_set_bit_to(bt_mesh.flags, BT_MESH_IVU_IN_PROGRESS,
+			  BT_MESH_IV_UPDATE(flags));
 
 	/* Set minimum required hours, since the 96-hour minimum requirement
 	 * doesn't apply straight after provisioning (since we can't know how
@@ -583,7 +579,7 @@ void bt_mesh_rpl_reset(void)
 #if defined(CONFIG_BT_MESH_IV_UPDATE_TEST)
 void bt_mesh_iv_update_test(bool enable)
 {
-	bt_mesh.ivu_test = enable;
+	atomic_set_bit_to(bt_mesh.flags, BT_MESH_IVU_TEST, enable);
 	/* Reset the duration variable - needed for some PTS tests */
 	bt_mesh.ivu_duration = 0U;
 }
@@ -595,7 +591,7 @@ bool bt_mesh_iv_update(void)
 		return false;
 	}
 
-	if (bt_mesh.iv_update) {
+	if (atomic_test_bit(bt_mesh.flags, BT_MESH_IVU_IN_PROGRESS)) {
 		bt_mesh_net_iv_update(bt_mesh.iv_index, false);
 	} else {
 		bt_mesh_net_iv_update(bt_mesh.iv_index + 1, true);
@@ -603,7 +599,7 @@ bool bt_mesh_iv_update(void)
 
 	bt_mesh_net_sec_update(NULL);
 
-	return bt_mesh.iv_update;
+	return atomic_test_bit(bt_mesh.flags, BT_MESH_IVU_IN_PROGRESS);
 }
 #endif /* CONFIG_BT_MESH_IV_UPDATE_TEST */
 
@@ -624,7 +620,7 @@ bool bt_mesh_net_iv_update(u32_t iv_index, bool iv_update)
 {
 	int i;
 
-	if (bt_mesh.iv_update) {
+	if (atomic_test_bit(bt_mesh.flags, BT_MESH_IVU_IN_PROGRESS)) {
 		/* We're currently in IV Update mode */
 
 		if (iv_index != bt_mesh.iv_index) {
@@ -673,7 +669,8 @@ bool bt_mesh_net_iv_update(u32_t iv_index, bool iv_update)
 		}
 	}
 
-	if (!(IS_ENABLED(CONFIG_BT_MESH_IV_UPDATE_TEST) && bt_mesh.ivu_test)) {
+	if (!(IS_ENABLED(CONFIG_BT_MESH_IV_UPDATE_TEST) &&
+	      atomic_test_bit(bt_mesh.flags, BT_MESH_IVU_TEST))) {
 		if (bt_mesh.ivu_duration < BT_MESH_IVU_MIN_HOURS) {
 			BT_WARN("IV Update before minimum duration");
 			return false;
@@ -683,15 +680,15 @@ bool bt_mesh_net_iv_update(u32_t iv_index, bool iv_update)
 	/* Defer change to Normal Operation if there are pending acks */
 	if (!iv_update && bt_mesh_tx_in_progress()) {
 		BT_WARN("IV Update deferred because of pending transfer");
-		bt_mesh.pending_update = 1U;
+		atomic_set_bit(bt_mesh.flags, BT_MESH_IVU_PENDING);
 		return false;
 	}
 
 do_update:
-	bt_mesh.iv_update = iv_update;
+	atomic_set_bit_to(bt_mesh.flags, BT_MESH_IVU_IN_PROGRESS, iv_update);
 	bt_mesh.ivu_duration = 0U;
 
-	if (bt_mesh.iv_update) {
+	if (iv_update) {
 		bt_mesh.iv_index = iv_index;
 		BT_DBG("IV Update state entered. New index 0x%08x",
 		       bt_mesh.iv_index);
@@ -774,7 +771,8 @@ int bt_mesh_net_resend(struct bt_mesh_subnet *sub, struct net_buf *buf,
 
 	bt_mesh_adv_send(buf, cb, cb_data);
 
-	if (!bt_mesh.iv_update && bt_mesh.seq > IV_UPDATE_SEQ_LIMIT) {
+	if (!atomic_test_bit(bt_mesh.flags, BT_MESH_IVU_IN_PROGRESS) &&
+	    bt_mesh.seq > IV_UPDATE_SEQ_LIMIT) {
 		bt_mesh_beacon_ivu_initiator(true);
 		bt_mesh_net_iv_update(bt_mesh.iv_index + 1, true);
 		bt_mesh_net_sec_update(NULL);
@@ -883,7 +881,7 @@ int bt_mesh_net_send(struct bt_mesh_net_tx *tx, struct net_buf *buf,
 	 * GATT bearers shall drop all messages with TTL value set to 1."
 	 */
 	if (IS_ENABLED(CONFIG_BT_MESH_GATT_PROXY) &&
-	    tx->ctx->send_ttl != 1) {
+	    tx->ctx->send_ttl != 1U) {
 		if (bt_mesh_proxy_relay(&buf->b, tx->ctx->addr) &&
 		    BT_MESH_ADDR_IS_UNICAST(tx->ctx->addr)) {
 			/* Notify completion if this only went
@@ -915,7 +913,7 @@ int bt_mesh_net_send(struct bt_mesh_net_tx *tx, struct net_buf *buf,
 			cb->end(0, cb_data);
 		}
 		k_work_submit(&bt_mesh.local_work);
-	} else if (tx->ctx->send_ttl != 1) {
+	} else if (tx->ctx->send_ttl != 1U) {
 		/* Deliver to to the advertising network interface. Mesh spec
 		 * 3.4.5.2: "The output filter of the interface connected to
 		 * advertising or GATT bearers shall drop all messages with
@@ -1143,11 +1141,11 @@ static void bt_mesh_net_relay(struct net_buf_simple *sbuf,
 		 * advertising or GATT bearers shall drop all messages with
 		 * TTL value set to 1."
 		 */
-		if (rx->ctx.recv_ttl == 1) {
+		if (rx->ctx.recv_ttl == 1U) {
 			return;
 		}
 	} else {
-		if (rx->ctx.recv_ttl <= 1) {
+		if (rx->ctx.recv_ttl <= 1U) {
 			return;
 		}
 	}
@@ -1181,7 +1179,7 @@ static void bt_mesh_net_relay(struct net_buf_simple *sbuf,
 	if (rx->net_if != BT_MESH_NET_IF_LOCAL) {
 		/* Leave CTL bit intact */
 		sbuf->data[1] &= 0x80;
-		sbuf->data[1] |= rx->ctx.recv_ttl - 1;
+		sbuf->data[1] |= rx->ctx.recv_ttl - 1U;
 	}
 
 	net_buf_add_mem(buf, sbuf->data, sbuf->len);
@@ -1260,8 +1258,8 @@ int bt_mesh_net_decode(struct net_buf_simple *data, enum bt_mesh_net_if net_if,
 	rx->ctx.recv_ttl = TTL(buf->data);
 
 	/* Default to responding with TTL 0 for non-routed messages */
-	if (rx->ctx.recv_ttl == 0) {
-		rx->ctx.send_ttl = 0;
+	if (rx->ctx.recv_ttl == 0U) {
+		rx->ctx.send_ttl = 0U;
 	} else {
 		rx->ctx.send_ttl = BT_MESH_TTL_DEFAULT;
 	}
@@ -1340,8 +1338,9 @@ static void ivu_refresh(struct k_work *work)
 	bt_mesh.ivu_duration += BT_MESH_IVU_HOURS;
 
 	BT_DBG("%s for %u hour%s",
-	       bt_mesh.iv_update ? "IVU in Progress" : "IVU Normal mode",
-	       bt_mesh.ivu_duration, bt_mesh.ivu_duration == 1 ? "" : "s");
+	       atomic_test_bit(bt_mesh.flags, BT_MESH_IVU_IN_PROGRESS) ?
+	       "IVU in Progress" : "IVU Normal mode",
+	       bt_mesh.ivu_duration, bt_mesh.ivu_duration == 1U ? "" : "s");
 
 	if (bt_mesh.ivu_duration < BT_MESH_IVU_MIN_HOURS) {
 		if (IS_ENABLED(CONFIG_BT_SETTINGS)) {
@@ -1352,7 +1351,7 @@ static void ivu_refresh(struct k_work *work)
 		return;
 	}
 
-	if (bt_mesh.iv_update) {
+	if (atomic_test_bit(bt_mesh.flags, BT_MESH_IVU_IN_PROGRESS)) {
 		bt_mesh_beacon_ivu_initiator(true);
 		bt_mesh_net_iv_update(bt_mesh.iv_index, false);
 	} else if (IS_ENABLED(CONFIG_BT_SETTINGS)) {

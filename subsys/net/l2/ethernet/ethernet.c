@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Intel Corporation.
+ * Copyright (c) 2016-2018 Intel Corporation.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -14,7 +14,10 @@ LOG_MODULE_REGISTER(net_ethernet, CONFIG_NET_L2_ETHERNET_LOG_LEVEL);
 #include <net/ethernet.h>
 #include <net/ethernet_mgmt.h>
 #include <net/gptp.h>
+
+#if defined(CONFIG_NET_LLDP)
 #include <net/lldp.h>
+#endif
 
 #include "arp.h"
 #include "eth_stats.h"
@@ -116,10 +119,10 @@ static inline void ethernet_update_length(struct net_if *iface,
 	}
 }
 
-#if defined(CONFIG_NET_STATISTICS_ETHERNET)
 static void ethernet_update_rx_stats(struct net_if *iface,
 				     struct net_pkt *pkt, size_t length)
 {
+#if defined(CONFIG_NET_STATISTICS_ETHERNET)
 	struct net_eth_hdr *hdr = NET_ETH_HDR(pkt);
 
 	eth_stats_update_bytes_rx(iface, length);
@@ -130,16 +133,8 @@ static void ethernet_update_rx_stats(struct net_if *iface,
 	} else if (net_eth_is_addr_multicast(&hdr->dst)) {
 		eth_stats_update_multicast_rx(iface);
 	}
-}
-#else
-static void ethernet_update_rx_stats(struct net_if *iface,
-				     struct net_pkt *pkt, int length)
-{
-	ARG_UNUSED(iface);
-	ARG_UNUSED(pkt);
-	ARG_UNUSED(length);
-}
 #endif /* CONFIG_NET_STATISTICS_ETHERNET */
+}
 
 static enum net_verdict ethernet_recv(struct net_if *iface,
 				      struct net_pkt *pkt)
@@ -267,7 +262,7 @@ static inline bool ethernet_ipv4_dst_is_broadcast_or_mcast(struct net_pkt *pkt)
 {
 	if (net_ipv4_is_addr_bcast(net_pkt_iface(pkt),
 				   &NET_IPV4_HDR(pkt)->dst) ||
-	    NET_IPV4_HDR(pkt)->dst.s4_addr[0] == 224) {
+	    NET_IPV4_HDR(pkt)->dst.s4_addr[0] == 224U) {
 		return true;
 	}
 
@@ -278,7 +273,7 @@ static bool ethernet_fill_in_dst_on_ipv4_mcast(struct net_pkt *pkt,
 					       struct net_eth_addr *dst)
 {
 	if (net_pkt_family(pkt) == AF_INET &&
-	    NET_IPV4_HDR(pkt)->dst.s4_addr[0] == 224) {
+	    NET_IPV4_HDR(pkt)->dst.s4_addr[0] == 224U) {
 		/* Multicast address */
 		dst->addr[0] = 0x01;
 		dst->addr[1] = 0x00;
@@ -298,10 +293,6 @@ static bool ethernet_fill_in_dst_on_ipv4_mcast(struct net_pkt *pkt,
 static struct net_pkt *ethernet_ll_prepare_on_ipv4(struct net_if *iface,
 						   struct net_pkt *pkt)
 {
-	if (net_pkt_ipv4_auto(pkt)) {
-		return pkt;
-	}
-
 	if (ethernet_ipv4_dst_is_broadcast_or_mcast(pkt)) {
 		return pkt;
 	}
@@ -456,6 +447,7 @@ static struct net_buf *ethernet_fill_header(struct ethernet_context *ctx,
 		hdr_vlan->type = ptype;
 		hdr_vlan->vlan.tpid = htons(NET_ETH_PTYPE_VLAN);
 		hdr_vlan->vlan.tci = htons(net_pkt_vlan_tci(pkt));
+		net_buf_add(hdr_frag, sizeof(struct net_eth_vlan_hdr));
 
 		print_vlan_ll_addrs(pkt, ntohs(hdr_vlan->type),
 				    net_pkt_vlan_tci(pkt),
@@ -486,35 +478,33 @@ static struct net_buf *ethernet_fill_header(struct ethernet_context *ctx,
 }
 
 #if defined(CONFIG_NET_STATISTICS_ETHERNET)
-static void ethernet_update_tx_stats(struct net_if *iface,
-				     struct net_pkt *pkt, int status)
+static void ethernet_update_tx_stats(struct net_if *iface, struct net_pkt *pkt)
 {
 	struct net_eth_hdr *hdr = NET_ETH_HDR(pkt);
 
-	if (status > 0) {
-		eth_stats_update_bytes_tx(iface, status);
-		eth_stats_update_pkts_tx(iface);
+	eth_stats_update_bytes_tx(iface, net_pkt_get_len(pkt));
+	eth_stats_update_pkts_tx(iface);
 
-		if (net_eth_is_addr_multicast(&hdr->dst)) {
-			eth_stats_update_multicast_tx(iface);
-		} else if (net_eth_is_addr_broadcast(&hdr->dst)) {
-			eth_stats_update_broadcast_tx(iface);
-		}
-	} else {
-		eth_stats_update_errors_tx(iface);
+	if (net_eth_is_addr_multicast(&hdr->dst)) {
+		eth_stats_update_multicast_tx(iface);
+	} else if (net_eth_is_addr_broadcast(&hdr->dst)) {
+		eth_stats_update_broadcast_tx(iface);
 	}
+}
+#endif /* CONFIG_NET_STATISTICS_ETHERNET */
 
-	net_pkt_unref(pkt);
-}
-#else
-static void ethernet_update_tx_stats(struct net_if *iface,
-				     struct net_pkt *pkt, int status)
+static void ethernet_remove_l2_header(struct net_pkt *pkt)
 {
-	ARG_UNUSED(iface);
-	ARG_UNUSED(pkt);
-	ARG_UNUSED(status);
+	struct net_buf *buf;
+
+	/* Remove the buffer added in ethernet_fill_header() */
+	buf = pkt->buffer;
+	pkt->buffer = buf->frags;
+	buf->frags = NULL;
+
+	net_pkt_frag_unref(buf);
 }
-#endif
+
 static int ethernet_send(struct net_if *iface, struct net_pkt *pkt)
 {
 	const struct ethernet_api *api = net_if_get_device(iface)->driver_api;
@@ -526,25 +516,34 @@ static int ethernet_send(struct net_if *iface, struct net_pkt *pkt)
 	    net_pkt_family(pkt) == AF_INET) {
 		struct net_pkt *tmp;
 
-		tmp = ethernet_ll_prepare_on_ipv4(iface, pkt);
-		if (!tmp) {
-			ret = -ENOMEM;
-			goto error;
-		} else if (IS_ENABLED(CONFIG_NET_ARP) && tmp != pkt) {
-			/* Original pkt got queued and is replaced
-			 * by an ARP request packet.
-			 */
-			pkt = tmp;
+		if (net_pkt_ipv4_auto(pkt)) {
 			ptype = htons(NET_ETH_PTYPE_ARP);
-			net_pkt_set_family(pkt, AF_INET);
 		} else {
-			ptype = htons(NET_ETH_PTYPE_IP);
+			tmp = ethernet_ll_prepare_on_ipv4(iface, pkt);
+			if (!tmp) {
+				ret = -ENOMEM;
+				goto error;
+			} else if (IS_ENABLED(CONFIG_NET_ARP) && tmp != pkt) {
+				/* Original pkt got queued and is replaced
+				 * by an ARP request packet.
+				 */
+				pkt = tmp;
+				ptype = htons(NET_ETH_PTYPE_ARP);
+				net_pkt_set_family(pkt, AF_INET);
+			} else {
+				ptype = htons(NET_ETH_PTYPE_IP);
+			}
 		}
 	} else if (IS_ENABLED(CONFIG_NET_IPV6) &&
 		   net_pkt_family(pkt) == AF_INET6) {
 		ptype = htons(NET_ETH_PTYPE_IPV6);
+	} else if (IS_ENABLED(CONFIG_NET_SOCKETS_PACKET) &&
+		   net_pkt_family(pkt) == AF_PACKET) {
+		goto send;
 	} else if (IS_ENABLED(CONFIG_NET_GPTP) && net_pkt_is_gptp(pkt)) {
 		ptype = htons(NET_ETH_PTYPE_PTP);
+	} else if (IS_ENABLED(CONFIG_NET_LLDP) && net_pkt_is_lldp(pkt)) {
+		ptype = htons(NET_ETH_PTYPE_LLDP);
 	} else if (IS_ENABLED(CONFIG_NET_ARP)) {
 		/* Unktown type: Unqueued pkt is an ARP reply.
 		 */
@@ -581,17 +580,22 @@ static int ethernet_send(struct net_if *iface, struct net_pkt *pkt)
 		goto error;
 	}
 
-	if (IS_ENABLED(CONFIG_NET_STATISTICS_ETHERNET)) {
-		net_pkt_ref(pkt);
-	}
+	net_pkt_cursor_init(pkt);
 
+send:
 	ret = api->send(net_if_get_device(iface), pkt);
-	if (!ret) {
-		ret = net_pkt_get_len(pkt);
-		net_pkt_unref(pkt);
+	if (ret != 0) {
+		eth_stats_update_errors_tx(iface);
+		ethernet_remove_l2_header(pkt);
+		goto error;
 	}
+#if defined(CONFIG_NET_STATISTICS_ETHERNET)
+	ethernet_update_tx_stats(iface, pkt);
+#endif
+	ret = net_pkt_get_len(pkt);
+	ethernet_remove_l2_header(pkt);
 
-	ethernet_update_tx_stats(iface, pkt, ret);
+	net_pkt_unref(pkt);
 error:
 	return ret;
 }
@@ -955,18 +959,6 @@ int net_eth_promisc_mode(struct net_if *iface, bool enable)
 	return net_mgmt(NET_REQUEST_ETHERNET_SET_PROMISC_MODE, iface,
 			&params, sizeof(struct ethernet_req_params));
 }
-
-#if defined(CONFIG_NET_LLDP)
-int net_eth_set_lldpdu(struct net_if *iface, const struct net_lldpdu *lldpdu)
-{
-	return net_lldp_config(iface, lldpdu);
-}
-
-void net_eth_unset_lldpdu(struct net_if *iface)
-{
-	net_lldp_config(iface, NULL);
-}
-#endif
 
 void ethernet_init(struct net_if *iface)
 {

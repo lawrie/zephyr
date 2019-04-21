@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 - 2018, Nordic Semiconductor ASA
+ * Copyright (c) 2017 - 2019, Nordic Semiconductor ASA
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -52,10 +52,19 @@ extern "C" {
     // SPI1, SPIS1, TWI1
     #define NRFX_PRS_BOX_1_ADDR     NRF_SPI1
 #elif defined(NRF52810_XXAA)
-    // TWIM0, TWIS0
+    // TWIM0, TWIS0, TWI0
     #define NRFX_PRS_BOX_0_ADDR     NRF_TWIM0
-    // SPIM0, SPIS0
+    // SPIM0, SPIS0, SPI0
     #define NRFX_PRS_BOX_1_ADDR     NRF_SPIM0
+    // UARTE0, UART0
+    #define NRFX_PRS_BOX_2_ADDR     NRF_UARTE0
+#elif defined(NRF52811_XXAA)
+    // TWIM0, TWIS0, TWI0, SPIM1, SPIS1, SPI1
+    #define NRFX_PRS_BOX_0_ADDR     NRF_TWIM0
+    // SPIM0, SPIS0, SPI0
+    #define NRFX_PRS_BOX_1_ADDR     NRF_SPIM0
+    // UART0, UARTE0
+    #define NRFX_PRS_BOX_2_ADDR     NRF_UART0
 #elif defined(NRF52832_XXAA) || defined (NRF52832_XXAB)
     // SPIM0, SPIS0, TWIM0, TWIS0, SPI0, TWI0
     #define NRFX_PRS_BOX_0_ADDR     NRF_SPIM0
@@ -124,6 +133,7 @@ nrfx_err_t nrfx_prs_acquire(void       const * p_base_addr,
  */
 void nrfx_prs_release(void const * p_base_addr);
 
+/** @} */
 
 void nrfx_prs_box_0_irq_handler(void);
 void nrfx_prs_box_1_irq_handler(void);
@@ -131,7 +141,6 @@ void nrfx_prs_box_2_irq_handler(void);
 void nrfx_prs_box_3_irq_handler(void);
 void nrfx_prs_box_4_irq_handler(void);
 
-/** @} */
 
 #ifdef __cplusplus
 }

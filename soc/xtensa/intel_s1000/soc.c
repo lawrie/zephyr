@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Intel Corporation
+ * Copyright (c) 2019 Intel Corporation
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -19,7 +19,7 @@ LOG_MODULE_REGISTER(soc);
 
 static u32_t ref_clk_freq;
 
-void _soc_irq_enable(u32_t irq)
+void z_soc_irq_enable(u32_t irq)
 {
 	struct device *dev_cavs, *dev_ictl;
 
@@ -38,7 +38,7 @@ void _soc_irq_enable(u32_t irq)
 		break;
 	default:
 		/* regular interrupt */
-		_xtensa_irq_enable(XTENSA_IRQ_NUMBER(irq));
+		z_xtensa_irq_enable(XTENSA_IRQ_NUMBER(irq));
 		return;
 	}
 
@@ -50,7 +50,7 @@ void _soc_irq_enable(u32_t irq)
 	/* If the control comes here it means the specified interrupt
 	 * is in either CAVS interrupt logic or DW interrupt controller
 	 */
-	_xtensa_irq_enable(XTENSA_IRQ_NUMBER(irq));
+	z_xtensa_irq_enable(XTENSA_IRQ_NUMBER(irq));
 
 	switch (CAVS_IRQ_NUMBER(irq)) {
 	case DW_ICTL_IRQ_CAVS_OFFSET:
@@ -78,7 +78,7 @@ void _soc_irq_enable(u32_t irq)
 	irq_enable_next_level(dev_ictl, INTR_CNTL_IRQ_NUM(irq));
 }
 
-void _soc_irq_disable(u32_t irq)
+void z_soc_irq_disable(u32_t irq)
 {
 	struct device *dev_cavs, *dev_ictl;
 
@@ -97,7 +97,7 @@ void _soc_irq_disable(u32_t irq)
 		break;
 	default:
 		/* regular interrupt */
-		_xtensa_irq_disable(XTENSA_IRQ_NUMBER(irq));
+		z_xtensa_irq_disable(XTENSA_IRQ_NUMBER(irq));
 		return;
 	}
 
@@ -120,7 +120,7 @@ void _soc_irq_disable(u32_t irq)
 
 		/* Disable the parent IRQ if all children are disabled */
 		if (!irq_is_enabled_next_level(dev_cavs)) {
-			_xtensa_irq_disable(XTENSA_IRQ_NUMBER(irq));
+			z_xtensa_irq_disable(XTENSA_IRQ_NUMBER(irq));
 		}
 		return;
 	}
@@ -142,7 +142,7 @@ void _soc_irq_disable(u32_t irq)
 		irq_disable_next_level(dev_cavs, CAVS_IRQ_NUMBER(irq));
 
 		if (!irq_is_enabled_next_level(dev_cavs)) {
-			_xtensa_irq_disable(XTENSA_IRQ_NUMBER(irq));
+			z_xtensa_irq_disable(XTENSA_IRQ_NUMBER(irq));
 		}
 	}
 }
@@ -169,37 +169,83 @@ static inline void soc_set_resource_ownership(void)
 		SOC_GENO_MNDIV_OWNER_DSP;
 }
 
-void dcache_writeback_region(void *addr, size_t size)
-{
-	xthal_dcache_region_writeback(addr, size);
-}
-
-void dcache_invalidate_region(void *addr, size_t size)
-{
-	xthal_dcache_region_invalidate(addr, size);
-}
-
 u32_t soc_get_ref_clk_freq(void)
 {
 	return ref_clk_freq;
 }
 
-static void soc_set_power_and_clock(void)
+static inline void soc_set_audio_mclk(void)
 {
-	volatile struct soc_dsp_shim_regs *regs =
-		(volatile struct soc_dsp_shim_regs *)
-		SOC_DSP_SHIM_REG_BASE;
+#if (CONFIG_AUDIO)
+	int mclk;
+	volatile struct soc_mclk_control_regs *mclk_regs =
+		(volatile struct soc_mclk_control_regs *)SOC_MCLK_DIV_CTRL_BASE;
 
-	regs->clkctl |= SOC_CLKCTL_REQ_FAST_CLK | SOC_CLKCTL_OCS_FAST_CLK;
-	regs->pwrctl |= SOC_PWRCTL_DISABLE_PWR_GATING_DSP1 |
-		SOC_PWRCTL_DISABLE_PWR_GATING_DSP0;
+	for (mclk = 0; mclk < SOC_NUM_MCLK_OUTPUTS; mclk++) {
+		/*
+		 * set divider to bypass mode which makes MCLK output frequency
+		 * to be the same as referece clock frequency
+		 */
+		mclk_regs->mdivxr[mclk] = SOC_MDIVXR_SET_DIVIDER_BYPASS;
+		mclk_regs->mdivctrl |= SOC_MDIVCTRL_MCLK_OUT_EN(mclk);
+	}
+#endif
 }
 
-static void soc_read_bootstraps(void)
+static inline void soc_set_dmic_power(void)
 {
+#if (CONFIG_AUDIO_INTEL_DMIC)
+	volatile struct soc_dmic_shim_regs *dmic_shim_regs =
+		(volatile struct soc_dmic_shim_regs *)SOC_DMIC_SHIM_REG_BASE;
+
+	/* enable power */
+	dmic_shim_regs->dmiclctl |= SOC_DMIC_SHIM_DMICLCTL_SPA;
+
+	while ((dmic_shim_regs->dmiclctl & SOC_DMIC_SHIM_DMICLCTL_CPA) == 0U) {
+		/* wait for power status */
+	}
+#endif
+}
+
+static inline void soc_set_gna_power(void)
+{
+#if (CONFIG_INTEL_GNA)
+	volatile struct soc_global_regs *regs =
+		(volatile struct soc_global_regs *)SOC_S1000_GLB_CTRL_BASE;
+
+	/* power on GNA block */
+	regs->gna_power_control |= SOC_GNA_POWER_CONTROL_SPA;
+	while ((regs->gna_power_control & SOC_GNA_POWER_CONTROL_CPA) == 0U) {
+		/* wait for power status */
+	}
+
+	/* enable clock for GNA block */
+	regs->gna_power_control |= SOC_GNA_POWER_CONTROL_CLK_EN;
+#endif
+}
+
+static inline void soc_set_power_and_clock(void)
+{
+	volatile struct soc_dsp_shim_regs *dsp_shim_regs =
+		(volatile struct soc_dsp_shim_regs *)SOC_DSP_SHIM_REG_BASE;
+
+	dsp_shim_regs->clkctl |= SOC_CLKCTL_REQ_FAST_CLK |
+		SOC_CLKCTL_OCS_FAST_CLK;
+	dsp_shim_regs->pwrctl |= SOC_PWRCTL_DISABLE_PWR_GATING_DSP1 |
+		SOC_PWRCTL_DISABLE_PWR_GATING_DSP0;
+
+	soc_set_dmic_power();
+	soc_set_gna_power();
+	soc_set_audio_mclk();
+}
+
+static inline void soc_read_bootstraps(void)
+{
+	volatile struct soc_global_regs *regs =
+		(volatile struct soc_global_regs *)SOC_S1000_GLB_CTRL_BASE;
 	u32_t bootstrap;
 
-	bootstrap = *((volatile u32_t *)SOC_S1000_GLB_CTRL_STRAPS);
+	bootstrap = regs->straps;
 
 	bootstrap &= SOC_S1000_STRAP_REF_CLK;
 

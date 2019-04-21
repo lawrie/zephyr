@@ -8,36 +8,9 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-menu "Shell Options"
-
-menuconfig CONSOLE_SHELL
-	bool "Enable legacy shell [ Experimental ]"
-	select CONSOLE_HANDLER
-	select CONSOLE_SUBSYS
-	help
-	  Shell implementation based on CONSOLE_HANDLER.
-
-
-if CONSOLE_SHELL
-
-config CONSOLE_SHELL_STACKSIZE
-	int "Console handler shell stack size"
-	default 2000
-	help
-	  Stack size for the console handler shell.
-
-config CONSOLE_SHELL_MAX_CMD_QUEUED
-	int "Shell's command queue size"
-	default 3
-	help
-	  Maximum size of the queue for input commands.
-
-
-endif
-
 menuconfig SHELL
-	bool "Enable shell"
-	select LOG_RUNTIME_FILTERING
+	bool "Shell"
+	imply LOG_RUNTIME_FILTERING
 	select POLL
 
 if SHELL
@@ -62,17 +35,12 @@ config SHELL_BACKSPACE_MODE_DELETE
 	  Some terminals send code: 0x08 (backspace) other 0x7F (delete). When
 	  this option is set shell will expect 0x7F for backspace key.
 
-config SHELL_PROMPT_LENGTH
-	int "Maximum prompt length"
-	default 16
-	help
-	  Maximum length of prompt name in bytes.
-
 config SHELL_CMD_BUFF_SIZE
 	int "Shell command buffer size"
 	default 256
 	help
-	  Maximum command size.
+	  Maximum command size in bytes. One byte is reserved for the string
+	  terminator character.
 
 config SHELL_PRINTF_BUFF_SIZE
 	int "Shell print buffer size"
@@ -113,8 +81,9 @@ config SHELL_METAKEYS
 	bool "Enable metakeys"
 	default y
 	help
-	  Enables shell metakeys: Home, End, ctrl+a, ctrl+c, ctrl+e, ctrl+l,
-	  ctrl+u, ctrl+w
+	  Enables shell meta keys: Ctrl+a, Ctrl+b, Ctrl+c, Ctrl+d, Ctrl+e,
+	  Ctrl+f, Ctrl+k, Ctrl+l, Ctrl+u, Ctrl+w, Alt+b, Alt+f
+	  Meta keys will not be active when shell echo is set to off.
 
 config SHELL_HELP
 	bool "Enable help message"
@@ -132,7 +101,7 @@ config SHELL_HISTORY
 	default y
 	help
 	  Enable commands history. History can be accessed using up and down
-	  arrows
+	  arrows.
 
 if SHELL_HISTORY
 
@@ -169,7 +138,7 @@ config SHELL_CMDS_RESIZE
 	  By default shell assumes width of a terminal screen set to 80
 	  characters. Each time terminal screen width is changed resize command
 	  must be called to ensure correct text display on the terminal screen.
-	  Resize command can be turned off to safe code memory (~0,5k).
+	  The resize command can be turned off to save code memory (~0,5k).
 
 config SHELL_LOG_BACKEND
 	bool
@@ -178,6 +147,4 @@ config SHELL_LOG_BACKEND
 
 source "subsys/shell/modules/Kconfig"
 
-endif #SHELL
-endmenu
-
+endif # SHELL

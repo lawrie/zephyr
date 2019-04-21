@@ -5,6 +5,7 @@ arch: arm
 toolchain:
   - zephyr
   - gnuarmemb
+  - xtools
 supported:
   - netif:eth
   - adc
@@ -12,3 +13,4 @@ supported:
   - spi
   - watchdog
   - usb_device
+  - pwm

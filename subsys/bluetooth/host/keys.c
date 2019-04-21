@@ -231,7 +231,7 @@ static void keys_clear_id(struct bt_keys *keys, void *data)
 
 	if (*id == keys->id) {
 		if (IS_ENABLED(CONFIG_BT_SETTINGS)) {
-			bt_gatt_clear_ccc(*id, &keys->addr);
+			bt_gatt_clear(*id, &keys->addr);
 		}
 
 		bt_keys_clear(keys);
@@ -266,7 +266,7 @@ int bt_keys_store(struct bt_keys *keys)
 		return err;
 	}
 
-	BT_DBG("Stored keys for %s (%s)", bt_addr_le_str(&keys->addr), key);
+	BT_DBG("Stored keys for %s (%s)", bt_addr_le_str(&keys->addr), log_strdup(key));
 
 	return 0;
 }

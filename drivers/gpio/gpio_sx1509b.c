@@ -14,6 +14,12 @@
 #include <misc/byteorder.h>
 #include <misc/util.h>
 
+#ifdef CONFIG_HAS_DTS_I2C
+#define CONFIG_GPIO_SX1509B_DEV_NAME	DT_SEMTECH_SX1509B_0_LABEL
+#define CONFIG_GPIO_SX1509B_I2C_ADDR	DT_SEMTECH_SX1509B_0_BASE_ADDRESS
+#define CONFIG_GPIO_SX1509B_I2C_MASTER_DEV_NAME DT_SEMTECH_SX1509B_0_BUS_NAME
+#endif
+
 /** Cache of the output configuration and data of the pins */
 struct gpio_sx1509b_pin_state {
 	u16_t input_disable;
@@ -357,7 +363,7 @@ static const struct gpio_sx1509b_config gpio_sx1509b_cfg = {
 };
 
 static struct gpio_sx1509b_drv_data gpio_sx1509b_drvdata = {
-	.lock = _K_SEM_INITIALIZER(gpio_sx1509b_drvdata.lock, 1, 1),
+	.lock = Z_SEM_INITIALIZER(gpio_sx1509b_drvdata.lock, 1, 1),
 };
 
 static const struct gpio_driver_api gpio_sx1509b_drv_api_funcs = {

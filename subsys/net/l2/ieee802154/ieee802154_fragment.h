@@ -20,10 +20,8 @@
 
 #include "ieee802154_frame.h"
 
-#ifdef CONFIG_NET_L2_IEEE802154_FRAGMENT
-
 struct ieee802154_fragment_ctx {
-	struct net_buf *frag;
+	struct net_buf *buf;
 	u8_t *pos;
 	u16_t pkt_size;
 	u16_t processed;
@@ -34,7 +32,8 @@ struct ieee802154_fragment_ctx {
 static inline bool ieee802154_fragment_is_needed(struct net_pkt *pkt,
 						 u8_t ll_hdr_size)
 {
-	return (net_pkt_get_len(pkt) + ll_hdr_size > IEEE802154_MTU);
+	return (net_pkt_get_len(pkt) + ll_hdr_size >
+			IEEE802154_MTU - IEEE802154_MFR_LENGTH);
 }
 
 static inline
@@ -42,12 +41,12 @@ void ieee802154_fragment_ctx_init(struct ieee802154_fragment_ctx *ctx,
 				  struct net_pkt *pkt, u16_t hdr_diff,
 				  bool iphc)
 {
-	ctx->frag = pkt->frags;
-	ctx->pos = ctx->frag->data;
+	ctx->buf = pkt->buffer;
+	ctx->pos = ctx->buf->data;
 	ctx->hdr_diff = hdr_diff;
 	ctx->pkt_size = net_pkt_get_len(pkt) + (iphc ? hdr_diff : -1);
-	ctx->offset = 0;
-	ctx->processed = 0;
+	ctx->offset = 0U;
+	ctx->processed = 0U;
 }
 
 /**
@@ -63,8 +62,12 @@ void ieee802154_fragment_ctx_init(struct ieee802154_fragment_ctx *ctx,
  *
  *  @return True in case of success, false otherwise
  */
+#ifdef CONFIG_NET_L2_IEEE802154_FRAGMENT
 void ieee802154_fragment(struct ieee802154_fragment_ctx *ctx,
 			 struct net_buf *frame_buf, bool iphc);
+#else
+#define ieee802154_fragment(...)
+#endif
 
 /**
  *  @brief Reassemble 802.15.4 fragments as per RFC 6282
@@ -81,18 +84,10 @@ void ieee802154_fragment(struct ieee802154_fragment_ctx *ctx,
  *          NET_OK waiting for other fragments,
  *          NET_DROP invalid fragment.
  */
+#ifdef CONFIG_NET_L2_IEEE802154_FRAGMENT
 enum net_verdict ieee802154_reassemble(struct net_pkt *pkt);
-
-#else /* CONFIG_NET_L2_IEEE802154_FRAGMENT */
-
-struct ieee802154_fragment_ctx {
-	struct net_buf *frag;
-};
-
-#define ieee802154_fragment_is_needed(...) false
-#define ieee802154_fragment_ctx_init(...)
-#define ieee802154_fragment(...)
-
+#else
+#define ieee802154_reassemble(...)
 #endif /* CONFIG_NET_L2_IEEE802154_FRAGMENT */
 
 #endif /* __NET_IEEE802154_FRAGMENT_H__ */

@@ -63,7 +63,7 @@ static void shell_tdata_dump(const struct k_thread *thread, void *user_data)
 					size);
 
 	/* Calculate the real size reserved for the stack */
-	pcnt = ((size - unused) * 100) / size;
+	pcnt = ((size - unused) * 100U) / size;
 
 	tname = k_thread_name_get((struct k_thread *)thread);
 
@@ -104,7 +104,7 @@ static void shell_stack_dump(const struct k_thread *thread, void *user_data)
 					size);
 
 	/* Calculate the real size reserved for the stack */
-	pcnt = ((size - unused) * 100) / size;
+	pcnt = ((size - unused) * 100U) / size;
 
 	shell_fprintf((const struct shell *)user_data, SHELL_NORMAL,
 		"0x%08X %-10s (real size %u):\tunused %u\tusage %u / %u (%u %%)\n",
@@ -142,18 +142,14 @@ static int cmd_kernel_reboot_cold(const struct shell *shell,
 	return 0;
 }
 
-SHELL_CREATE_STATIC_SUBCMD_SET(sub_kernel_reboot)
-{
-	/* Alphabetically sorted. */
+SHELL_STATIC_SUBCMD_SET_CREATE(sub_kernel_reboot,
 	SHELL_CMD(cold, NULL, "Cold reboot.", cmd_kernel_reboot_cold),
 	SHELL_CMD(warm, NULL, "Warm reboot.", cmd_kernel_reboot_warm),
 	SHELL_SUBCMD_SET_END /* Array terminated. */
-};
+);
 #endif
 
-SHELL_CREATE_STATIC_SUBCMD_SET(sub_kernel)
-{
-	/* Alphabetically sorted. */
+SHELL_STATIC_SUBCMD_SET_CREATE(sub_kernel,
 	SHELL_CMD(cycles, NULL, "Kernel cycles.", cmd_kernel_cycles),
 #if defined(CONFIG_REBOOT)
 	SHELL_CMD(reboot, &sub_kernel_reboot, "Reboot.", NULL),
@@ -166,6 +162,6 @@ SHELL_CREATE_STATIC_SUBCMD_SET(sub_kernel)
 	SHELL_CMD(uptime, NULL, "Kernel uptime.", cmd_kernel_uptime),
 	SHELL_CMD(version, NULL, "Kernel version.", cmd_kernel_version),
 	SHELL_SUBCMD_SET_END /* Array terminated. */
-};
+);
 
 SHELL_CMD_REGISTER(kernel, &sub_kernel, "Kernel commands", NULL);

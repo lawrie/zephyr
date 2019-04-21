@@ -9,19 +9,173 @@ LOG_MODULE_DECLARE(LOG_MODULE_NAME);
 
 #include <stdlib.h>
 #include <limits.h>
+#include <fcntl.h>
 
 #include <zephyr.h>
 /* Define sockaddr, etc, before simplelink.h */
 #include <net/socket_offload.h>
 
+#include <errno.h>
 #include <ti/drivers/net/wifi/simplelink.h>
 #include <ti/drivers/net/wifi/source/driver.h>
 #include "simplelink_support.h"
 
 #include "tls_internal.h"
 
+#define FAILED (-1)
+
 /* Mutex for getaddrinfo() calls: */
 K_MUTEX_DEFINE(ga_mutex);
+
+/*
+ * Convert SL error codes into BSD errno values
+ * note that we are handling the same set of values as in TI SlNetSock
+ * minus the ones that are not defined in ti/drivers/net/wifi/errors.h.
+ */
+static int getErrno(_i32 error)
+{
+	if (error >= 0) {
+		return error;
+	}
+	/* This switch case block is necessary for translating the NWP error
+	 * code to BSD ones. The #ifdef in each case are made in order to
+	 * reduce code footprint: These cases are compiled if and only if
+	 * there's a discrepancy between the BSD error number and the error
+	 * code returned by the NWP.
+	 */
+	switch (error) {
+#if EBADF != SL_ERROR_BSD_EBADF
+	case SL_ERROR_BSD_EBADF:
+		error = EBADF;
+		break;
+#endif
+#if ENSOCK !=  SL_ERROR_BSD_ENSOCK
+	case SL_ERROR_BSD_ENSOCK:
+		/* The limit on total # of open sockets has been reached */
+		error = ENSOCK;
+		break;
+#endif
+#if EAGAIN != SL_ERROR_BSD_EAGAIN
+	case SL_ERROR_BSD_EAGAIN:
+		error = EAGAIN;
+		break;
+#endif
+#if ENOMEM != SL_ERROR_BSD_ENOMEM
+	case SL_ERROR_BSD_ENOMEM:
+		error = ENOMEM;
+		break;
+#endif
+#if EACCES != SL_ERROR_BSD_EACCES
+	case SL_ERROR_BSD_EACCES:
+		error = EACCES;
+		break;
+#endif
+#if EFAULT != SL_ERROR_BSD_EFAULT
+	case SL_ERROR_BSD_EFAULT:
+		error = EFAULT;
+		break;
+#endif
+#if EINVAL != SL_ERROR_BSD_EINVAL
+	case SL_ERROR_BSD_EINVAL:
+		error = EINVAL;
+		break;
+#endif
+#if EDESTADDRREQ != SL_ERROR_BSD_EDESTADDRREQ
+	case SL_ERROR_BSD_EDESTADDRREQ:
+		error = EDESTADDRREQ;
+		break;
+#endif
+#if EPROTOTYPE != SL_ERROR_BSD_EPROTOTYPE
+	case SL_ERROR_BSD_EPROTOTYPE:
+		error = EPROTOTYPE;
+		break;
+#endif
+#if ENOPROTOOPT != SL_ERROR_BSD_ENOPROTOOPT
+	case SL_ERROR_BSD_ENOPROTOOPT:
+		error = ENOPROTOOPT;
+		break;
+#endif
+#if EPROTONOSUPPORT != SL_ERROR_BSD_EPROTONOSUPPORT
+	case SL_ERROR_BSD_EPROTONOSUPPORT:
+		error = EPROTONOSUPPORT;
+		break;
+#endif
+#if EOPNOTSUPP != SL_ERROR_BSD_EOPNOTSUPP
+	case SL_ERROR_BSD_EOPNOTSUPP:
+		error = EOPNOTSUPP;
+		break;
+#endif
+#if EAFNOSUPPORT != SL_ERROR_BSD_EAFNOSUPPORT
+	case SL_ERROR_BSD_EAFNOSUPPORT:
+		error = EAFNOSUPPORT;
+		break;
+#endif
+#if EADDRINUSE != SL_ERROR_BSD_EADDRINUSE
+	case SL_ERROR_BSD_EADDRINUSE:
+		error = EADDRINUSE;
+		break;
+#endif
+#if EADDRNOTAVAIL != SL_ERROR_BSD_EADDRNOTAVAIL
+	case SL_ERROR_BSD_EADDRNOTAVAIL:
+		error = EADDRNOTAVAIL;
+		break;
+#endif
+#if ENETUNREACH != SL_ERROR_BSD_ENETUNREACH
+	case SL_ERROR_BSD_ENETUNREACH:
+		error = ENETUNREACH;
+		break;
+#endif
+#if ENOBUFS != SL_ERROR_BSD_ENOBUFS
+	case SL_ERROR_BSD_ENOBUFS:
+		error = ENOBUFS;
+		break;
+#endif
+#if EISCONN != SL_ERROR_BSD_EISCONN
+	case SL_ERROR_BSD_EISCONN:
+		error = EISCONN;
+		break;
+#endif
+#if ENOTCONN != SL_ERROR_BSD_ENOTCONN
+	case SL_ERROR_BSD_ENOTCONN:
+		error = ENOTCONN;
+		break;
+#endif
+#if ETIMEDOUT != SL_ERROR_BSD_ETIMEDOUT
+	case SL_ERROR_BSD_ETIMEDOUT:
+		error = ETIMEDOUT;
+		break;
+#endif
+#if ECONNREFUSED != SL_ERROR_BSD_ECONNREFUSED
+	case SL_ERROR_BSD_ECONNREFUSED:
+		error = ECONNREFUSED;
+		break;
+#endif
+	/* The cases below are proprietary driver errors, which can
+	 * be returned by the SimpleLink Driver, in various cases of failure.
+	 * Each is mapped to the corresponding BSD error.
+	 */
+	case SL_POOL_IS_EMPTY:
+	case SL_RET_CODE_NO_FREE_ASYNC_BUFFERS_ERROR:
+	case SL_RET_CODE_MALLOC_ERROR:
+		error = ENOMEM;
+		break;
+	case SL_RET_CODE_INVALID_INPUT:
+	case SL_EZEROLEN:
+	case SL_ESMALLBUF:
+	case SL_INVALPARAM:
+		error = EINVAL;
+		break;
+	default:
+	/* Do nothing ..
+	 * If no case is true, that means that the BSD error
+	 * code and the code returned by the NWP are either identical,
+	 * or no proprietary error has occurred.
+	 */
+		break;
+	}
+
+	return error;
+}
 
 static int simplelink_socket(int family, int type, int proto)
 {
@@ -30,49 +184,85 @@ static int simplelink_socket(int family, int type, int proto)
 	int retval = 0;
 	int sl_proto = proto;
 
-	/* Map Zephyr socket.h AF_INET6 to SimpleLink's: */
-	family = (family == AF_INET6 ? SL_AF_INET6 : family);
+	/* Map Zephyr socket.h family to SimpleLink's: */
+	switch (family) {
+	case AF_INET:
+		family = SL_AF_INET;
+		break;
+	case AF_INET6:
+		family = SL_AF_INET6;
+		break;
+	default:
+		LOG_ERR("unsupported family: %d", family);
+		retval = slcb_SetErrno(EAFNOSUPPORT);
+		goto exit;
+	}
 
-	/* Map Zephyr TLS protocols to TI's values: */
+	/* Map Zephyr socket.h type to SimpleLink's: */
+	switch (type) {
+	case SOCK_STREAM:
+		type = SL_SOCK_STREAM;
+		break;
+	case SOCK_DGRAM:
+		type = SL_SOCK_DGRAM;
+		break;
+	case SOCK_RAW:
+		type = SL_SOCK_RAW;
+		break;
+	default:
+		LOG_ERR("unrecognized type: %d", type);
+		retval = slcb_SetErrno(ESOCKTNOSUPPORT);
+		goto exit;
+	}
+
+	/* Map Zephyr protocols to TI's values: */
 	if (proto >= IPPROTO_TLS_1_0 && proto <= IPPROTO_TLS_1_2) {
 		sl_proto = SL_SEC_SOCKET;
 	} else if (proto >= IPPROTO_DTLS_1_0 && proto <= IPPROTO_DTLS_1_2) {
 		/* SimpleLink doesn't handle DTLS yet! */
-		retval = EPROTONOSUPPORT;
+		retval = slcb_SetErrno(EPROTONOSUPPORT);
 		goto exit;
-	}
-
-	/* Ensure other Zephyr definitions match SimpleLink's: */
-	__ASSERT(family == SL_AF_INET || family == SL_AF_INET6 \
-		 || family == SL_INADDR_ANY,		       \
-		 "unrecognized family: %d", family);
-	__ASSERT(type == SL_SOCK_STREAM || type == SL_SOCK_DGRAM || \
-		 type == SL_SOCK_RAW,				    \
-		 "unrecognized type: %d", type);
-	__ASSERT(sl_proto == SL_IPPROTO_TCP || sl_proto == SL_IPPROTO_UDP || \
-		 sl_proto == SL_IPPROTO_RAW || sl_proto == SL_SEC_SOCKET,    \
-		 "unrecognized proto: %d", sl_proto);
-
-	sd = sl_Socket(family, type, sl_proto);
-	if (sd < 0) {
-		retval = sd;
-		goto exit;
-	}
-
-	if (IS_ENABLED(CONFIG_NET_SOCKETS_SOCKOPT_TLS)
-	    && sl_proto == SL_SEC_SOCKET) {
-		/* Now, set specific TLS version via setsockopt(): */
-		sec_method = (proto - IPPROTO_TLS_1_0) + SL_SO_SEC_METHOD_TLSV1;
-		retval = sl_SetSockOpt(sd, SL_SOL_SOCKET, SL_SO_SECMETHOD,
-				       &sec_method, sizeof(sec_method));
-		if (retval < 0) {
-			retval = EPROTONOSUPPORT;
-			(void)sl_Close(sd);
+	} else {
+		switch (proto) {
+		case IPPROTO_TCP:
+			sl_proto = SL_IPPROTO_TCP;
+			break;
+		case IPPROTO_UDP:
+			sl_proto = SL_IPPROTO_UDP;
+			break;
+		default:
+			LOG_ERR("unrecognized proto: %d", sl_proto);
+			retval = slcb_SetErrno(EPROTONOSUPPORT);
+			goto exit;
 		}
 	}
 
+	sd = sl_Socket(family, type, sl_proto);
+	if (sd >= 0) {
+		if (IS_ENABLED(CONFIG_NET_SOCKETS_SOCKOPT_TLS)
+		    && sl_proto == SL_SEC_SOCKET) {
+			/* Now, set specific TLS version via setsockopt(): */
+			sec_method = (proto - IPPROTO_TLS_1_0) +
+				SL_SO_SEC_METHOD_TLSV1;
+			retval = sl_SetSockOpt(sd, SL_SOL_SOCKET,
+				SL_SO_SECMETHOD,
+				&sec_method, sizeof(sec_method));
+			if (retval < 0) {
+				retval = slcb_SetErrno(EPROTONOSUPPORT);
+				(void)sl_Close(sd);
+				goto exit;
+			}
+		}
+	}
+
+	retval = sd;
+
+	if (retval < 0) {
+		retval = slcb_SetErrno(getErrno(retval));
+	}
+
 exit:
-	return _SlDrvSetErrno(retval);
+	return retval;
 }
 
 static int simplelink_close(int sd)
@@ -81,7 +271,11 @@ static int simplelink_close(int sd)
 
 	retval = sl_Close(sd);
 
-	return _SlDrvSetErrno(retval);
+	if (retval < 0) {
+		retval = slcb_SetErrno(getErrno(retval));
+	}
+
+	return retval;
 }
 
 static SlSockAddr_t *translate_z_to_sl_addrlen(socklen_t addrlen,
@@ -114,7 +308,7 @@ static SlSockAddr_t *translate_z_to_sl_addrs(const struct sockaddr *addr,
 		struct sockaddr_in *z_sockaddr_in = (struct sockaddr_in *)addr;
 
 		*sl_addrlen = sizeof(SlSockAddrIn_t);
-		sl_addr_in->sin_family = AF_INET;
+		sl_addr_in->sin_family = SL_AF_INET;
 		sl_addr_in->sin_port = z_sockaddr_in->sin_port;
 		sl_addr_in->sin_addr.s_addr =
 			z_sockaddr_in->sin_addr.s_addr;
@@ -125,7 +319,7 @@ static SlSockAddr_t *translate_z_to_sl_addrs(const struct sockaddr *addr,
 			(struct sockaddr_in6 *)addr;
 
 		*sl_addrlen = sizeof(SlSockAddrIn6_t);
-		sl_addr_in6->sin6_family = AF_INET6;
+		sl_addr_in6->sin6_family = SL_AF_INET6;
 		sl_addr_in6->sin6_port = z_sockaddr_in6->sin6_port;
 		memcpy(sl_addr_in6->sin6_addr._S6_un._S6_u32,
 		       z_sockaddr_in6->sin6_addr.s6_addr,
@@ -209,7 +403,11 @@ static int simplelink_accept(int sd, struct sockaddr *addr, socklen_t *addrlen)
 	translate_sl_to_z_addr(sl_addr, sl_addrlen, addr, addrlen);
 
 exit:
-	return _SlDrvSetErrno(retval);
+	if (retval < 0) {
+		retval = slcb_SetErrno(getErrno(retval));
+	}
+
+	return retval;
 }
 
 static int simplelink_bind(int sd, const struct sockaddr *addr,
@@ -222,8 +420,8 @@ static int simplelink_bind(int sd, const struct sockaddr *addr,
 	SlSocklen_t sl_addrlen;
 
 	if (addr == NULL) {
-		retval = EISDIR;
-		goto exit;
+		retval = slcb_SetErrno(EISDIR);
+		return retval;
 	}
 
 	/* Translate to sl_Bind() parameters: */
@@ -238,7 +436,11 @@ static int simplelink_bind(int sd, const struct sockaddr *addr,
 	retval = sl_Bind(sd, sl_addr, sl_addrlen);
 
 exit:
-	return _SlDrvSetErrno(retval);
+	if (retval < 0) {
+		retval = slcb_SetErrno(getErrno(retval));
+	}
+
+	return retval;
 }
 
 static int simplelink_listen(int sd, int backlog)
@@ -247,7 +449,11 @@ static int simplelink_listen(int sd, int backlog)
 
 	retval = (int)sl_Listen(sd, backlog);
 
-	return _SlDrvSetErrno(retval);
+	if (retval < 0) {
+		retval = slcb_SetErrno(getErrno(retval));
+	}
+
+	return retval;
 }
 
 static int simplelink_connect(int sd, const struct sockaddr *addr,
@@ -280,8 +486,25 @@ static int simplelink_connect(int sd, const struct sockaddr *addr,
 		retval = 0;
 	}
 
+	/* Warn users when root CA is not in the certificate catalog.
+	 * For enhanced security, users should update the catalog with the
+	 * certificates for sites the device is expected to connect to. Note
+	 * the connection is established successfully even when the root CA
+	 * is not part of the catalog.
+	 */
+	if (retval == SL_ERROR_BSD_ESECUNKNOWNROOTCA) {
+		LOG_WRN("Unknown root CA used. For proper security, please "
+			"use a root CA that is part of the certificate "
+			"catalog in production systems.");
+		retval = 0;
+	}
+
 exit:
-	return _SlDrvSetErrno(retval);
+	if (retval < 0) {
+		retval = slcb_SetErrno(getErrno(retval));
+	}
+
+	return retval;
 }
 
 #define ONE_THOUSAND 1000
@@ -295,7 +518,7 @@ static int simplelink_poll(struct pollfd *fds, int nfds, int msecs)
 	int i, retval, fd;
 
 	if (nfds > SL_FD_SETSIZE) {
-		retval = EINVAL;
+		retval = slcb_SetErrno(EINVAL);
 		goto exit;
 	}
 
@@ -342,8 +565,12 @@ static int simplelink_poll(struct pollfd *fds, int nfds, int msecs)
 		}
 	}
 
+	if (retval < 0) {
+		retval = slcb_SetErrno(getErrno(retval));
+	}
+
 exit:
-	return _SlDrvSetErrno(retval);
+	return retval;
 }
 
 #ifdef CONFIG_NET_SOCKETS_SOCKOPT_TLS
@@ -397,6 +624,7 @@ static int map_credentials(int sd, const void *optval, socklen_t optlen)
 					       cert->buf,
 					       (SlSocklen_t)cert->len);
 			if (retval < 0) {
+				retval = getErrno(retval);
 				break;
 			}
 			cert = credential_next_get(tag, cert);
@@ -418,9 +646,7 @@ static int map_credentials(int sd, const void *optval, socklen_t optlen)
  *  Remove once Zephyr has POSIX socket options defined.
  */
 #define SO_BROADCAST  (200)
-#define SO_REUSEADDR  (201)
 #define SO_SNDBUF     (202)
-#define TCP_NODELAY   (203)
 
 /* Needed to keep line lengths < 80: */
 #define _SEC_DOMAIN_VERIF SL_SO_SECURE_DOMAIN_NAME_VERIFICATION
@@ -436,21 +662,47 @@ static int simplelink_setsockopt(int sd, int level, int optname,
 		case TLS_SEC_TAG_LIST:
 			/* Bind credential filenames to this socket: */
 			retval = map_credentials(sd, optval, optlen);
+			if (retval != 0) {
+				retval = slcb_SetErrno(retval);
+				goto exit;
+			}
 			break;
 		case TLS_HOSTNAME:
 			retval = sl_SetSockOpt(sd, SL_SOL_SOCKET,
 					       _SEC_DOMAIN_VERIF,
 					       (const char *)optval, optlen);
 			break;
-		case TLS_CIPHERSUITE_LIST:
 		case TLS_PEER_VERIFY:
+			if (optval) {
+				/*
+				 * Not currently supported. Verification
+				 * is automatically performed if a CA
+				 * certificate is set. We are returning
+				 * success here to allow
+				 * mqtt_client_tls_connect()
+				 * to proceed, given it requires
+				 * verification and it is indeed
+				 * performed when the cert is set.
+				 */
+				if (*(u32_t *)optval != 2U) {
+					retval = slcb_SetErrno(ENOTSUP);
+					goto exit;
+				} else {
+					retval = 0;
+				}
+			} else {
+				retval = slcb_SetErrno(EINVAL);
+				goto exit;
+			}
+			break;
+		case TLS_CIPHERSUITE_LIST:
 		case TLS_DTLS_ROLE:
 			/* Not yet supported: */
-			retval = ENOTSUP;
-			break;
+			retval = slcb_SetErrno(ENOTSUP);
+			goto exit;
 		default:
-			retval = EINVAL;
-			break;
+			retval = slcb_SetErrno(EINVAL);
+			goto exit;
 		}
 	} else {
 		/* Can be SOL_SOCKET or TI specific: */
@@ -475,7 +727,7 @@ static int simplelink_setsockopt(int sd, int level, int optname,
 		case SO_BROADCAST:
 		case SO_REUSEADDR:
 		case SO_SNDBUF:
-			retval = EINVAL;
+			retval = slcb_SetErrno(EINVAL);
 			goto exit;
 		default:
 			break;
@@ -484,8 +736,12 @@ static int simplelink_setsockopt(int sd, int level, int optname,
 				       (SlSocklen_t)optlen);
 	}
 
+	if (retval < 0) {
+		retval = slcb_SetErrno(getErrno(retval));
+	}
+
 exit:
-	return _SlDrvSetErrno(retval);
+	return retval;
 }
 
 static int simplelink_getsockopt(int sd, int level, int optname,
@@ -500,11 +756,11 @@ static int simplelink_getsockopt(int sd, int level, int optname,
 		case TLS_CIPHERSUITE_LIST:
 		case TLS_CIPHERSUITE_USED:
 			/* Not yet supported: */
-			retval = ENOTSUP;
-			break;
+			retval = slcb_SetErrno(ENOTSUP);
+			goto exit;
 		default:
-			retval = EINVAL;
-			break;
+			retval = slcb_SetErrno(EINVAL);
+			goto exit;
 		}
 	} else {
 		/* Can be SOL_SOCKET or TI specific: */
@@ -526,7 +782,7 @@ static int simplelink_getsockopt(int sd, int level, int optname,
 		case SO_BROADCAST:
 		case SO_REUSEADDR:
 		case SO_SNDBUF:
-			retval = EINVAL;
+			retval = slcb_SetErrno(EINVAL);
 			goto exit;
 		default:
 			break;
@@ -534,8 +790,13 @@ static int simplelink_getsockopt(int sd, int level, int optname,
 		retval = sl_GetSockOpt(sd, SL_SOL_SOCKET, optname, optval,
 				       (SlSocklen_t *)optlen);
 	}
+
+	if (retval < 0) {
+		retval = slcb_SetErrno(getErrno(retval));
+	}
+
 exit:
-	return _SlDrvSetErrno(retval);
+	return retval;
 }
 
 /* SimpleLink does not support flags in recv.
@@ -587,9 +848,14 @@ static ssize_t simplelink_recv(int sd, void *buf, size_t max_len, int flags)
 	if (!retval) {
 		retval = (ssize_t)sl_Recv(sd, buf, max_len, 0);
 		handle_recv_flags(sd, flags, FALSE, &nb_enabled);
+		if (retval < 0) {
+			retval = slcb_SetErrno(getErrno(retval));
+		}
+	} else {
+		retval = slcb_SetErrno(retval);
 	}
 
-	return (ssize_t)(_SlDrvSetErrno(retval));
+	return (ssize_t)(retval);
 }
 
 static ssize_t simplelink_recvfrom(int sd, void *buf, short int len,
@@ -624,10 +890,14 @@ static ssize_t simplelink_recvfrom(int sd, void *buf, short int len,
 			/* Translate sl_addr into *addr and set *addrlen: */
 			translate_sl_to_z_addr(sl_addr, sl_addrlen, from,
 					       fromlen);
+		} else {
+			retval = slcb_SetErrno(getErrno(retval));
 		}
+	} else {
+		retval = slcb_SetErrno(retval);
 	}
 
-	return _SlDrvSetErrno(retval);
+	return retval;
 }
 
 static ssize_t simplelink_send(int sd, const void *buf, size_t len,
@@ -637,7 +907,11 @@ static ssize_t simplelink_send(int sd, const void *buf, size_t len,
 
 	retval = (ssize_t)sl_Send(sd, buf, len, flags);
 
-	return _SlDrvSetErrno(retval);
+	if (retval < 0) {
+		retval = slcb_SetErrno(getErrno(retval));
+	}
+
+	return retval;
 }
 
 static ssize_t simplelink_sendto(int sd, const void *buf, size_t len,
@@ -661,8 +935,13 @@ static ssize_t simplelink_sendto(int sd, const void *buf, size_t len,
 
 	retval = sl_SendTo(sd, buf, (u16_t)len, flags,
 				    sl_addr, sl_addrlen);
+
 exit:
-	return _SlDrvSetErrno(retval);
+	if (retval < 0) {
+		retval = slcb_SetErrno(getErrno(retval));
+	}
+
+	return retval;
 }
 
 /*
@@ -777,6 +1056,45 @@ static void simplelink_freeaddrinfo(struct addrinfo *res)
 	free(res);
 }
 
+static int simplelink_fcntl(int sd, int cmd, va_list args)
+{
+	int retval = 0;
+	SlSockNonblocking_t enableOption;
+	SlSocklen_t optlen = sizeof(SlSockNonblocking_t);
+
+	switch (cmd) {
+	case F_GETFL:
+		retval = sl_GetSockOpt(sd, SL_SOL_SOCKET, SL_SO_NONBLOCKING,
+			(_u8 *)&enableOption, &optlen);
+		if (retval == 0) {
+			if (enableOption.NonBlockingEnabled) {
+				retval |= O_NONBLOCK;
+			}
+		}
+		break;
+	case F_SETFL:
+		if ((va_arg(args, int) & O_NONBLOCK) != 0) {
+			enableOption.NonBlockingEnabled = 1;
+		} else {
+			enableOption.NonBlockingEnabled = 0;
+		}
+		retval = sl_SetSockOpt(sd, SL_SOL_SOCKET, SL_SO_NONBLOCKING,
+			&enableOption, optlen);
+		break;
+	default:
+		LOG_ERR("Invalid command: %d", cmd);
+		retval = slcb_SetErrno(EINVAL);
+		goto exit;
+	}
+
+	if (retval < 0) {
+		retval = slcb_SetErrno(getErrno(retval));
+	}
+
+exit:
+	return retval;
+}
+
 void simplelink_sockets_init(void)
 {
 	k_mutex_init(&ga_mutex);
@@ -798,4 +1116,5 @@ const struct socket_offload simplelink_ops = {
 	.sendto = simplelink_sendto,
 	.getaddrinfo = simplelink_getaddrinfo,
 	.freeaddrinfo = simplelink_freeaddrinfo,
+	.fcntl = simplelink_fcntl,
 };

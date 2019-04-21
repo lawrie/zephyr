@@ -14,10 +14,14 @@
 #include "settings_priv.h"
 #include <zephyr/types.h>
 
+#include <logging/log.h>
+LOG_MODULE_REGISTER(settings, CONFIG_SETTINGS_LOG_LEVEL);
+
 sys_slist_t settings_handlers;
 
 static u8_t settings_cmd_inited;
 
+static struct settings_handler *settings_handler_lookup(char *name);
 void settings_store_init(void);
 
 void settings_init(void)
@@ -32,14 +36,18 @@ void settings_init(void)
 
 int settings_register(struct settings_handler *handler)
 {
+	if (settings_handler_lookup(handler->name)) {
+		return -EEXIST;
+	}
 	sys_slist_prepend(&settings_handlers, &handler->node);
+
 	return 0;
 }
 
 /*
  * Find settings_handler based on name.
  */
-struct settings_handler *settings_handler_lookup(char *name)
+static struct settings_handler *settings_handler_lookup(char *name)
 {
 	struct settings_handler *ch;
 
@@ -135,7 +143,7 @@ int settings_val_read_cb(void *value_ctx, void *buf, size_t len)
 
 	if (value_context->runtime) {
 		rt_ctx = value_context->read_cb_ctx;
-		len_read = min(len, rt_ctx->size);
+		len_read = MIN(len, rt_ctx->size);
 		memcpy(buf, rt_ctx->p_value, len_read);
 		return len_read;
 	} else {

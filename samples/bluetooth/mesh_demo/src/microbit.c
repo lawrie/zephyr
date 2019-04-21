@@ -108,7 +108,7 @@ void board_play_tune(const char *str)
 		}
 
 		while (isdigit((unsigned char)*str)) {
-			duration *= 10;
+			duration *= 10U;
 			duration += *str - '0';
 			str++;
 		}
@@ -126,7 +126,7 @@ void board_play_tune(const char *str)
 		}
 
 		if (period) {
-			pwm_pin_set_usec(pwm, BUZZER_PIN, period, period / 2);
+			pwm_pin_set_usec(pwm, BUZZER_PIN, period, period / 2U);
 		}
 
 		k_sleep(duration);
@@ -170,7 +170,7 @@ void board_heartbeat(u8_t hops, u16_t feat)
 	printk("%u hops\n", hops);
 
 	if (hops) {
-		hops = min(hops, ARRAY_SIZE(hops_img));
+		hops = MIN(hops, ARRAY_SIZE(hops_img));
 		mb_display_image(disp, MB_DISPLAY_MODE_SINGLE, K_SECONDS(2),
 				 &hops_img[hops - 1], 1);
 	}

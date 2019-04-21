@@ -12,6 +12,7 @@
 #define SSD1673_CMD_GDO_CTRL			0x01
 #define SSD1673_CMD_GDV_CTRL			0x03
 #define SSD1673_CMD_SDV_CTRL			0x04
+#define SSD1673_CMD_SOFTSTART			0x0c
 #define SSD1673_CMD_GSCAN_START			0x0f
 #define SSD1673_CMD_SLEEP_MODE			0x10
 #define SSD1673_CMD_ENTRY_MODE			0x11
@@ -66,23 +67,11 @@
 #define SSD1673_SLEEP_MODE_PON			0x00
 
 /* Default values */
-#define SSD1673_VAL_GDV_CTRL_A			16
-#define SSD1673_VAL_GDV_CTRL_B			10
-#define SSD1673_VAL_SDV_CTRL			0x19
-#define SSD1673_VAL_VCOM_VOLTAGE		0xa8
 #define SSD1673_VAL_DUMMY_LINE			0x1a
 #define SSD1673_VAL_GATE_LWIDTH			0x08
-
-/** Maximum resolution in the X direction */
-#define SSD1673_RAM_XRES			152
-/** Maximum resolution in the Y direction */
-#define SSD1673_RAM_YRES			250
 
 /* time constants in ms */
 #define SSD1673_RESET_DELAY			1
 #define SSD1673_BUSY_DELAY			1
-
-/** Size of each RAM in octets */
-#define SSD1673_RAM_SIZE	(SSD1673_RAM_XRES * SSD1673_RAM_YRES / 8)
 
 #endif /* __SSD1673_REGS_H__ */

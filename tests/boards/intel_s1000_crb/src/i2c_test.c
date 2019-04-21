@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Intel Corporation
+ * Copyright (c) 2019 Intel Corporation
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -33,7 +33,7 @@
 #include <device.h>
 #include <i2c.h>
 
-#define I2C_DEV                 CONFIG_I2C_0_NAME
+#define I2C_DEV                 "I2C_0"
 #define I2C_ADDR_LED_MAT0       0x65
 #define I2C_ADDR_LED_MAT1       0x69
 #define LED0                    0x02
@@ -97,6 +97,13 @@ void test_i2c_write_led(struct device *i2c_dev, u16_t i2c_slave_led, u8_t color)
 		break;
 
 	default:
+		/* Go dark */
+		led_val[0] = 0x00;
+		led_val[1] = 0x00;
+		led_val[2] = 0x00;
+		led_val[3] = 0x00;
+		led_val[4] = 0x00;
+		led_val[5] = 0x00;
 		break;
 	}
 

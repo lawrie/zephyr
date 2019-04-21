@@ -31,13 +31,13 @@ struct linux_driver {
 	void			(*dev_irq_ack)(struct linux_bus *lbus,
 					     struct linux_device *ldev,
 					     int irq);
-	int 			(*dev_dma_map)(struct linux_bus *lbus,
+	int			(*dev_dma_map)(struct linux_bus *lbus,
 						struct linux_device *ldev,
 						uint32_t dir,
 						struct metal_sg *sg_in,
 						int nents_in,
 						struct metal_sg *sg_out);
-	void 			(*dev_dma_unmap)(struct linux_bus *lbus,
+	void			(*dev_dma_unmap)(struct linux_bus *lbus,
 						struct linux_device *ldev,
 						uint32_t dir,
 						struct metal_sg *sg,
@@ -102,7 +102,7 @@ static int metal_uio_dev_bind(struct linux_device *ldev,
 		return 0;
 
 	if (strcmp(ldev->sdev->driver_name, SYSFS_UNKNOWN) != 0) {
-		metal_log(METAL_LOG_ERROR, "device %s in use by driver %s\n",
+		metal_log(METAL_LOG_INFO, "device %s in use by driver %s\n",
 			  ldev->dev_name, ldev->sdev->driver_name);
 		return -EBUSY;
 	}
@@ -156,6 +156,7 @@ static int metal_uio_dev_open(struct linux_bus *lbus, struct linux_device *ldev)
 
 
 	ldev->fd = -1;
+	ldev->device.irq_info = (void *)-1;
 
 	ldev->sdev = sysfs_open_device(lbus->bus_name, ldev->dev_name);
 	if (!ldev->sdev) {
@@ -249,6 +250,7 @@ static int metal_uio_dev_open(struct linux_bus *lbus, struct linux_device *ldev)
 	} else {
 		ldev->device.irq_num =  1;
 		ldev->device.irq_info = (void *)(intptr_t)ldev->fd;
+		metal_linux_irq_register_dev(&ldev->device, ldev->fd);
 	}
 
 	return 0;
@@ -258,12 +260,6 @@ static void metal_uio_dev_close(struct linux_bus *lbus,
 				struct linux_device *ldev)
 {
 	(void)lbus;
-
-	if ((intptr_t)ldev->device.irq_info >= 0)
-		/* Normally this call would not be needed, and is added as precaution.
-		   Also for uio there is only 1 interrupt associated to the fd/device,
-		   we therefore do not need to specify a particular device */
-		metal_irq_unregister(ldev->fd, NULL, NULL, NULL);
 
 	if (ldev->override) {
 		sysfs_write_attribute(ldev->override, "", 1);
@@ -361,6 +357,16 @@ static struct linux_bus linux_bus[] = {
 			{
 				.drv_name  = "uio_pdrv_genirq",
 				.mod_name  = "uio_pdrv_genirq",
+				.cls_name  = "uio",
+				.dev_open  = metal_uio_dev_open,
+				.dev_close = metal_uio_dev_close,
+				.dev_irq_ack  = metal_uio_dev_irq_ack,
+				.dev_dma_map = metal_uio_dev_dma_map,
+				.dev_dma_unmap = metal_uio_dev_dma_unmap,
+			},
+			{
+				.drv_name  = "uio_dmem_genirq",
+				.mod_name  = "uio_dmem_genirq",
 				.cls_name  = "uio",
 				.dev_open  = metal_uio_dev_open,
 				.dev_close = metal_uio_dev_close,
@@ -576,34 +582,32 @@ static int metal_linux_probe_driver(struct linux_bus *lbus,
 	return ldrv->sdrv ? 0 : -ENODEV;
 }
 
+static void metal_linux_bus_close(struct metal_bus *bus);
+
 static int metal_linux_probe_bus(struct linux_bus *lbus)
 {
 	struct linux_driver *ldrv;
-	int error = -ENODEV;
+	int ret, error = -ENODEV;
 
 	lbus->sbus = sysfs_open_bus(lbus->bus_name);
 	if (!lbus->sbus)
 		return -ENODEV;
 
 	for_each_linux_driver(lbus, ldrv) {
-		error = metal_linux_probe_driver(lbus, ldrv);
-		if (!error)
-			break;
+		ret = metal_linux_probe_driver(lbus, ldrv);
+		/* Clear the error if any driver is available */
+		if (!ret)
+			error = ret;
 	}
 
 	if (error) {
-		sysfs_close_bus(lbus->sbus);
-		lbus->sbus = NULL;
+		metal_linux_bus_close(&lbus->bus);
 		return error;
 	}
 
 	error = metal_linux_register_bus(lbus);
-	if (error) {
-		sysfs_close_driver(ldrv->sdrv);
-		ldrv->sdrv = NULL;
-		sysfs_close_bus(lbus->sbus);
-		lbus->sbus = NULL;
-	}
+	if (error)
+		metal_linux_bus_close(&lbus->bus);
 
 	return error;
 }
@@ -634,5 +638,26 @@ int metal_generic_dev_sys_open(struct metal_device *dev)
 {
 	(void)dev;
 	return 0;
+}
+
+int metal_linux_get_device_property(struct metal_device *device,
+				    const char *property_name,
+				    void *output, int len)
+{
+	int fd = 0;
+	int status = 0;
+	const int flags = O_RDONLY;
+	const int mode = S_IRUSR | S_IRGRP | S_IROTH;
+	struct linux_device *ldev = to_linux_device(device);
+	char path[PATH_MAX];
+
+	snprintf(path, sizeof(path), "%s/of_node/%s",
+			 ldev->sdev->path, property_name);
+	fd = open(path, flags, mode);
+	if (fd < 0)
+		return -errno;
+	status = read(fd, output, len);
+
+	return status < 0 ? -errno : 0;
 }
 

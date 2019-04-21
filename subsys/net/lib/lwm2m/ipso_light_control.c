@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2017 Linaro Limited
+ * Copyright (c) 2019 Foundries.io
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -18,7 +19,6 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 
 #include <stdint.h>
 #include <init.h>
-#include <net/lwm2m.h>
 
 #include "lwm2m_object.h"
 #include "lwm2m_engine.h"
@@ -90,7 +90,7 @@ static int on_time_post_write_cb(u16_t obj_inst_id,
 {
 	int i;
 
-	if (data_len != 4) {
+	if (data_len != 4U) {
 		LOG_ERR("unknown size %u", data_len);
 		return -EINVAL;
 	}

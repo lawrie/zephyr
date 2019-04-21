@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+
 /dts-v1/;
 
 #include <ti/lm3s6965.dtsi>
@@ -40,4 +42,32 @@
 
 &eth {
 	status = "ok";
+};
+
+&gpio0 {
+       status = "ok";
+};
+
+&gpio1 {
+       status = "ok";
+};
+
+&gpio2 {
+       status = "ok";
+};
+
+&gpio3 {
+       status = "ok";
+};
+
+&gpio4 {
+       status = "ok";
+};
+
+&gpio5 {
+       status = "ok";
+};
+
+&gpio6 {
+       status = "ok";
 };

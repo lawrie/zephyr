@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 cmake_minimum_required(VERSION 3.13.1)
 
 if (NOT DEFINED ENV{BSIM_COMPONENTS_PATH})
@@ -14,9 +16,13 @@ target_sources(app PRIVATE
 	src/main.c
 	src/test_empty.c
 	src/test_connect1.c
+	src/test_connect2.c
+	../../../../samples/bluetooth/gatt/hrs.c
+	../../../../samples/bluetooth/gatt/bas.c
 )
 
 zephyr_include_directories(
   $ENV{BSIM_COMPONENTS_PATH}/libUtilv1/src/
   $ENV{BSIM_COMPONENTS_PATH}/libPhyComv1/src/
+  $ENV{ZEPHYR_BASE}/samples/bluetooth
 )

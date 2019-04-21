@@ -13,6 +13,11 @@
 #include <watchdog.h>
 #include <device.h>
 
+enum wdt_mode {
+	WDT_MODE_RESET = 0,
+	WDT_MODE_INTERRUPT_RESET
+};
+
 struct wdt_esp32_data {
 	u32_t timeout;
 	enum wdt_mode mode;
@@ -176,7 +181,7 @@ static int wdt_esp32_install_timeout(struct device *dev,
 		return -ENOTSUP;
 	}
 
-	if (cfg->window.min != 0 || cfg->window.max == 0) {
+	if (cfg->window.min != 0U || cfg->window.max == 0U) {
 		return -EINVAL;
 	}
 

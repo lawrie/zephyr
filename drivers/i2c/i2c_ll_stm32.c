@@ -26,6 +26,7 @@ int i2c_stm32_runtime_configure(struct device *dev, u32_t config)
 	struct i2c_stm32_data *data = DEV_DATA(dev);
 	I2C_TypeDef *i2c = cfg->i2c;
 	u32_t clock = 0U;
+	int ret;
 
 #if defined(CONFIG_SOC_SERIES_STM32F3X) || defined(CONFIG_SOC_SERIES_STM32F0X)
 	LL_RCC_ClocksTypeDef rcc_clocks;
@@ -44,10 +45,13 @@ int i2c_stm32_runtime_configure(struct device *dev, u32_t config)
 
 	data->dev_config = config;
 
+	k_sem_take(&data->bus_mutex, K_FOREVER);
 	LL_I2C_Disable(i2c);
 	LL_I2C_SetMode(i2c, LL_I2C_MODE_I2C);
+	ret = stm32_i2c_configure_timing(dev, clock);
+	k_sem_give(&data->bus_mutex);
 
-	return stm32_i2c_configure_timing(dev, clock);
+	return ret;
 }
 
 #define OPERATION(msg) (((struct i2c_msg *) msg)->flags & I2C_MSG_RW_MASK)
@@ -55,6 +59,7 @@ int i2c_stm32_runtime_configure(struct device *dev, u32_t config)
 static int i2c_stm32_transfer(struct device *dev, struct i2c_msg *msg,
 			      u8_t num_msgs, u16_t slave)
 {
+	struct i2c_stm32_data *data = DEV_DATA(dev);
 #if defined(CONFIG_I2C_STM32_V1)
 	const struct i2c_stm32_config *cfg = DEV_CFG(dev);
 	I2C_TypeDef *i2c = cfg->i2c;
@@ -74,11 +79,6 @@ static int i2c_stm32_transfer(struct device *dev, struct i2c_msg *msg,
 	current->flags |= I2C_MSG_RESTART;
 
 	for (u8_t i = 1; i <= num_msgs; i++) {
-		/* Maximum length of a single message is 255 Bytes */
-		if (current->len > 255) {
-			ret = -EINVAL;
-			break;
-		}
 
 		if (i < num_msgs) {
 			next = current + 1;
@@ -112,6 +112,7 @@ static int i2c_stm32_transfer(struct device *dev, struct i2c_msg *msg,
 	}
 
 	/* Send out messages */
+	k_sem_take(&data->bus_mutex, K_FOREVER);
 #if defined(CONFIG_I2C_STM32_V1)
 	LL_I2C_Enable(i2c);
 #endif
@@ -125,25 +126,48 @@ static int i2c_stm32_transfer(struct device *dev, struct i2c_msg *msg,
 			next = current + 1;
 			next_msg_flags = &(next->flags);
 		}
+		while (current->len > 0) {
+			u32_t temp_len = current->len;
+			u8_t tmp_msg_flags = current->flags & ~I2C_MSG_RESTART;
+			u8_t tmp_next_msg_flags = next_msg_flags ?
+							*next_msg_flags : 0;
 
-		if ((current->flags & I2C_MSG_RW_MASK) == I2C_MSG_WRITE) {
-			ret = stm32_i2c_msg_write(dev, current, next_msg_flags,
-						  slave);
-		} else {
-			ret = stm32_i2c_msg_read(dev, current, next_msg_flags,
-						 slave);
+			if (current->len > 255) {
+				current->len = 255U;
+				current->flags &= ~I2C_MSG_STOP;
+				if (next_msg_flags) {
+					*next_msg_flags = current->flags &
+							  ~I2C_MSG_RESTART;
+				}
+			}
+			if ((current->flags & I2C_MSG_RW_MASK) ==
+								I2C_MSG_WRITE) {
+				ret = stm32_i2c_msg_write(dev, current,
+							  next_msg_flags,
+							  slave);
+			} else {
+				ret = stm32_i2c_msg_read(dev, current,
+							 next_msg_flags, slave);
+			}
+
+			if (ret < 0) {
+				goto exit;
+			}
+			if (next_msg_flags) {
+				*next_msg_flags = tmp_next_msg_flags;
+			}
+			current->buf += current->len;
+			current->flags = tmp_msg_flags;
+			current->len = temp_len - current->len;
 		}
-
-		if (ret < 0) {
-			break;
-		}
-
 		current++;
 		num_msgs--;
 	}
+exit:
 #if defined(CONFIG_I2C_STM32_V1)
 	LL_I2C_Disable(i2c);
 #endif
+	k_sem_give(&data->bus_mutex);
 	return ret;
 }
 
@@ -162,12 +186,18 @@ static int i2c_stm32_init(struct device *dev)
 	const struct i2c_stm32_config *cfg = DEV_CFG(dev);
 	u32_t bitrate_cfg;
 	int ret;
-#ifdef CONFIG_I2C_STM32_INTERRUPT
 	struct i2c_stm32_data *data = DEV_DATA(dev);
-
+#ifdef CONFIG_I2C_STM32_INTERRUPT
 	k_sem_init(&data->device_sync_sem, 0, UINT_MAX);
 	cfg->irq_config_func(dev);
 #endif
+
+	/*
+	 * initialize mutex used when multiple transfers
+	 * are taking place to guarantee that each one is
+	 * atomic and has exclusive access to the I2C bus.
+	 */
+	k_sem_init(&data->bus_mutex, 1, 1);
 
 	__ASSERT_NO_MSG(clock);
 	if (clock_control_on(clock,
@@ -204,7 +234,7 @@ static int i2c_stm32_init(struct device *dev)
 	}
 #endif /* CONFIG_SOC_SERIES_STM32F3X) || CONFIG_SOC_SERIES_STM32F0X */
 
-	bitrate_cfg = _i2c_map_dt_bitrate(cfg->bitrate);
+	bitrate_cfg = i2c_map_dt_bitrate(cfg->bitrate);
 
 	ret = i2c_stm32_runtime_configure(dev, I2C_MODE_MASTER | bitrate_cfg);
 	if (ret < 0) {

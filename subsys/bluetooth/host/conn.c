@@ -33,6 +33,7 @@
 #include "keys.h"
 #include "smp.h"
 #include "att_internal.h"
+#include "gatt_internal.h"
 
 NET_BUF_POOL_DEFINE(acl_tx_pool, CONFIG_BT_L2CAP_TX_BUF_COUNT,
 		    BT_L2CAP_BUF_SIZE(CONFIG_BT_L2CAP_TX_MTU),
@@ -135,6 +136,10 @@ static void notify_connected(struct bt_conn *conn)
 		if (cb->connected) {
 			cb->connected(conn, conn->err);
 		}
+	}
+
+	if (!conn->err) {
+		bt_gatt_connected(conn);
 	}
 }
 
@@ -1308,7 +1313,7 @@ static struct net_buf *create_frag(struct bt_conn *conn, struct net_buf *buf)
 	/* Fragments never have a TX completion callback */
 	conn_tx(frag)->cb = NULL;
 
-	frag_len = min(conn_mtu(conn), net_buf_tailroom(frag));
+	frag_len = MIN(conn_mtu(conn), net_buf_tailroom(frag));
 
 	net_buf_add_mem(frag, buf->data, frag_len);
 	net_buf_pull(buf, frag_len);
@@ -1385,7 +1390,7 @@ int bt_conn_prepare_events(struct k_poll_event events[])
 
 	BT_DBG("");
 
-	conn_change.signaled = 0;
+	conn_change.signaled = 0U;
 	k_poll_event_init(&events[ev_count++], K_POLL_TYPE_SIGNAL,
 			  K_POLL_MODE_NOTIFY_ONLY, &conn_change);
 
@@ -1916,6 +1921,10 @@ struct bt_conn *bt_conn_create_le(const bt_addr_le_t *peer,
 {
 	struct bt_conn *conn;
 
+	if (!atomic_test_bit(bt_dev.flags, BT_DEV_READY)) {
+		return NULL;
+	}
+
 	if (!bt_le_conn_params_valid(param)) {
 		return NULL;
 	}
@@ -2022,7 +2031,7 @@ struct bt_conn *bt_conn_create_slave_le(const bt_addr_le_t *peer,
 	param_int.options |= (BT_LE_ADV_OPT_CONNECTABLE |
 			      BT_LE_ADV_OPT_ONE_TIME);
 
-	conn = bt_conn_lookup_addr_le(BT_ID_DEFAULT, peer);
+	conn = bt_conn_lookup_addr_le(param->id, peer);
 	if (conn) {
 		switch (conn->state) {
 		case BT_CONN_CONNECT_DIR_ADV:
@@ -2034,6 +2043,7 @@ struct bt_conn *bt_conn_create_slave_le(const bt_addr_le_t *peer,
 			if (err && (err != -EALREADY)) {
 				BT_WARN("Directed advertising could not be"
 					" started: %d", err);
+				bt_conn_unref(conn);
 				return NULL;
 			}
 

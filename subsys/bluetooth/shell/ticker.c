@@ -16,12 +16,9 @@
 
 #include <shell/shell.h>
 
-#if defined(CONFIG_SOC_COMPATIBLE_NRF)
-#include "../controller/hal/nrf5/ticker.h"
-#endif /* CONFIG_SOC_COMPATIBLE_NRF */
-
 #include "../controller/util/memq.h"
 #include "../controller/util/mayfly.h"
+#include "../controller/hal/ticker.h"
 #include "../controller/ticker/ticker.h"
 
 #if defined(CONFIG_BT_MAX_CONN)
@@ -127,10 +124,10 @@ int cmd_ticker_info(const struct shell *shell, size_t argc, char *argv[])
 
 #define HELP_NONE "[none]"
 
-SHELL_CREATE_STATIC_SUBCMD_SET(ticker_cmds) {
+SHELL_STATIC_SUBCMD_SET_CREATE(ticker_cmds,
 	SHELL_CMD_ARG(info, NULL, HELP_NONE, cmd_ticker_info, 1, 0),
 	SHELL_SUBCMD_SET_END
-};
+);
 
 static int cmd_ticker(const struct shell *shell, size_t argc, char **argv)
 {

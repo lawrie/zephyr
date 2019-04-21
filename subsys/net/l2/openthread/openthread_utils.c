@@ -12,8 +12,28 @@ LOG_MODULE_DECLARE(net_l2_openthread, CONFIG_OPENTHREAD_L2_LOG_LEVEL);
 #include <net/openthread.h>
 
 #include <openthread/ip6.h>
+#include <openthread/thread.h>
 
 #include "openthread_utils.h"
+
+#define ALOC16_MASK 0xfc
+
+static bool is_anycast_locator(const otNetifAddress *address)
+{
+	return address->mAddress.mFields.m16[4] == htons(0x0000) &&
+	       address->mAddress.mFields.m16[5] == htons(0x00ff) &&
+	       address->mAddress.mFields.m16[6] == htons(0xfe00) &&
+	       address->mAddress.mFields.m8[14] == ALOC16_MASK;
+}
+
+static bool is_mesh_local(struct openthread_context *context,
+			  const u8_t *address)
+{
+	const otMeshLocalPrefix *ml_prefix =
+				otThreadGetMeshLocalPrefix(context->instance);
+
+	return (memcmp(address, ml_prefix->m8, sizeof(ml_prefix)) == 0);
+}
 
 int pkt_list_add(struct openthread_context *context, struct net_pkt *pkt)
 {
@@ -29,7 +49,7 @@ int pkt_list_add(struct openthread_context *context, struct net_pkt *pkt)
 	}
 
 	if (i_idx == context->pkt_list_out_idx) {
-		context->pkt_list_full = 1;
+		context->pkt_list_full = 1U;
 	}
 
 	context->pkt_list[context->pkt_list_in_idx].pkt = pkt;
@@ -58,18 +78,24 @@ void pkt_list_remove_last(struct openthread_context *context)
 
 	context->pkt_list_out_idx++;
 	if (context->pkt_list_out_idx == CONFIG_OPENTHREAD_PKT_LIST_SIZE) {
-		context->pkt_list_out_idx = 0;
+		context->pkt_list_out_idx = 0U;
 	}
 
-	context->pkt_list_full = 0;
+	context->pkt_list_full = 0U;
 }
 
 void add_ipv6_addr_to_zephyr(struct openthread_context *context)
 {
 	const otNetifAddress *address;
+	struct net_if_addr *if_addr;
 
 	for (address = otIp6GetUnicastAddresses(context->instance);
 	     address; address = address->mNext) {
+
+		if (address->mRloc || is_anycast_locator(address)) {
+			continue;
+		}
+
 		if (CONFIG_OPENTHREAD_L2_LOG_LEVEL == LOG_LEVEL_DBG) {
 			char buf[NET_IPV6_ADDR_LEN];
 
@@ -79,9 +105,18 @@ void add_ipv6_addr_to_zephyr(struct openthread_context *context)
 				       buf, sizeof(buf))));
 		}
 
-		net_if_ipv6_addr_add(context->iface,
-				     (struct in6_addr *)(&address->mAddress),
-				     NET_ADDR_ANY, 0);
+		if_addr = net_if_ipv6_addr_add(
+					context->iface,
+					(struct in6_addr *)(&address->mAddress),
+					NET_ADDR_AUTOCONF, 0);
+
+		if (if_addr == NULL) {
+			NET_ERR("Cannot add OpenThread unicast address");
+			continue;
+		}
+
+		if_addr->is_mesh_local = is_mesh_local(
+					context, address->mAddress.mFields.m8);
 	}
 }
 
@@ -108,6 +143,9 @@ void add_ipv6_addr_to_ot(struct openthread_context *context)
 			break;
 		}
 	}
+
+	ipv6->unicast[i].is_mesh_local = is_mesh_local(
+			context, ipv6->unicast[i].address.in6_addr.s6_addr);
 
 	addr.mValid = true;
 	addr.mPreferred = true;

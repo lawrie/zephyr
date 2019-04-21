@@ -86,24 +86,24 @@ constexpr size_t ARRAY_SIZE(T(&)[N]) { return N; }
 #define INLINE
 #endif
 
-#ifndef max
-#define max(a, b) (((a) > (b)) ? (a) : (b))
+#ifndef MAX
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #endif
 
-#ifndef min
-#define min(a, b) (((a) < (b)) ? (a) : (b))
+#ifndef MIN
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #endif
 
-static inline int is_power_of_two(unsigned int x)
+static inline bool is_power_of_two(unsigned int x)
 {
-	return (x != 0) && !(x & (x - 1));
+	return (x != 0U) && ((x & (x - 1)) == 0U);
 }
 
 static inline s64_t arithmetic_shift_right(s64_t value, u8_t shift)
 {
 	s64_t sign_ext;
 
-	if (shift == 0) {
+	if (shift == 0U) {
 		return value;
 	}
 
@@ -169,14 +169,14 @@ static inline s64_t arithmetic_shift_right(s64_t value, u8_t shift)
  * value to be e.g. a literal "1" at expansion time in the next macro,
  * not "(1)", etc...  Standard recursive expansion does not work.
  */
-#define IS_ENABLED(config_macro) _IS_ENABLED1(config_macro)
+#define IS_ENABLED(config_macro) Z_IS_ENABLED1(config_macro)
 
 /* Now stick on a "_XXXX" prefix, it will now be "_XXXX1" if config_macro
  * is "1", or just "_XXXX" if it's undefined.
- *   ENABLED:   _IS_ENABLED2(_XXXX1)
- *   DISABLED   _IS_ENABLED2(_XXXX)
+ *   ENABLED:   Z_IS_ENABLED2(_XXXX1)
+ *   DISABLED   Z_IS_ENABLED2(_XXXX)
  */
-#define _IS_ENABLED1(config_macro) _IS_ENABLED2(_XXXX##config_macro)
+#define Z_IS_ENABLED1(config_macro) Z_IS_ENABLED2(_XXXX##config_macro)
 
 /* Here's the core trick, we map "_XXXX1" to "_YYYY," (i.e. a string
  * with a trailing comma), so it has the effect of making this a
@@ -190,15 +190,100 @@ static inline s64_t arithmetic_shift_right(s64_t value, u8_t shift)
 /* Then we append an extra argument to fool the gcc preprocessor into
  * accepting it as a varargs macro.
  *                         arg1   arg2  arg3
- *   ENABLED:   _IS_ENABLED3(_YYYY,    1,    0)
- *   DISABLED   _IS_ENABLED3(_XXXX 1,  0)
+ *   ENABLED:   Z_IS_ENABLED3(_YYYY,    1,    0)
+ *   DISABLED   Z_IS_ENABLED3(_XXXX 1,  0)
  */
-#define _IS_ENABLED2(one_or_two_args) _IS_ENABLED3(one_or_two_args true, false)
+#define Z_IS_ENABLED2(one_or_two_args) Z_IS_ENABLED3(one_or_two_args true, false)
 
 /* And our second argument is thus now cooked to be 1 in the case
  * where the value is defined to 1, and 0 if not:
  */
-#define _IS_ENABLED3(ignore_this, val, ...) val
+#define Z_IS_ENABLED3(ignore_this, val, ...) val
+
+/**
+ * @brief Insert code depending on result of flag evaluation.
+ *
+ * This is based on same idea as @ref IS_ENABLED macro but as the result of
+ * flag evaluation provided code is injected. Because preprocessor interprets
+ * each comma as an argument boundary, code must be provided in the brackets.
+ * Brackets are stripped away during macro processing.
+ *
+ * Usage example:
+ *
+ * \#define MACRO(x) COND_CODE_1(CONFIG_FLAG, (u32_t x;), ())
+ *
+ * It can be considered as alternative to:
+ *
+ * \#if defined(CONFIG_FLAG) && (CONFIG_FLAG == 1)
+ * \#define MACRO(x) u32_t x;
+ * \#else
+ * \#define MACRO(x)
+ * \#endif
+ *
+ * However, the advantage of that approach is that code is resolved in place
+ * where it is used while \#if method resolves given macro when header is
+ * included and product is fixed in the given scope.
+ *
+ * @note Flag can also be a result of preprocessor output e.g.
+ *	 product of NUM_VA_ARGS_LESS_1(...).
+ *
+ * @param _flag		Evaluated flag
+ * @param _if_1_code	Code used if flag exists and equal 1. Argument must be
+ *			in brackets.
+ * @param _else_code	Code used if flag doesn't exists or isn't equal 1.
+ *
+ */
+#define COND_CODE_1(_flag, _if_1_code, _else_code) \
+	Z_COND_CODE_1(_flag, _if_1_code, _else_code)
+
+#define Z_COND_CODE_1(_flag, _if_1_code, _else_code) \
+	__COND_CODE(_XXXX##_flag, _if_1_code, _else_code)
+
+/**
+ * @brief Insert code depending on result of flag evaluation.
+ *
+ * See @ref COND_CODE_1 for details.
+ *
+ * @param _flag		Evaluated flag
+ * @param _if_0_code	Code used if flag exists and equal 0. Argument must be
+ *			in brackets.
+ * @param _else_code	Code used if flag doesn't exists or isn't equal 0.
+ *
+ */
+#define COND_CODE_0(_flag, _if_0_code, _else_code) \
+	Z_COND_CODE_0(_flag, _if_0_code, _else_code)
+
+#define Z_COND_CODE_0(_flag, _if_0_code, _else_code) \
+	__COND_CODE(_ZZZZ##_flag, _if_0_code, _else_code)
+
+#define _ZZZZ0 _YYYY,
+
+/* Macro used internally by @ref COND_CODE_1 and @ref COND_CODE_0. */
+#define __COND_CODE(one_or_two_args, _if_code, _else_code) \
+	__GET_ARG2_DEBRACKET(one_or_two_args _if_code, _else_code)
+
+/* Macro used internally to remove brackets from argument. */
+#define __DEBRACKET(...) __VA_ARGS__
+
+/* Macro used internally for getting second argument and removing brackets
+ * around that argument. It is expected that parameter is provided in brackets
+ */
+#define __GET_ARG2_DEBRACKET(ignore_this, val, ...) __DEBRACKET val
+
+/**
+ * @brief Get first argument from variable list of arguments
+ */
+#define GET_ARG1(arg1, ...) arg1
+
+/**
+ * @brief Get second argument from variable list of arguments
+ */
+#define GET_ARG2(arg1, arg2, ...) arg2
+
+/**
+ * @brief Get all arguments except the first one.
+ */
+#define GET_ARGS_LESS_1(val, ...) __VA_ARGS__
 
 /**
  * Macros for doing code-generation with the preprocessor.
@@ -429,27 +514,27 @@ static inline s64_t arithmetic_shift_right(s64_t value, u8_t shift)
 /*
  * The following provides variadic preprocessor macro support to
  * help eliminate multiple, repetitive function/macro calls.  This
- * allows up to 10 "arguments" in addition to _call .
+ * allows up to 10 "arguments" in addition to z_call .
  * Note - derived from work on:
  * https://codecraft.co/2014/11/25/variadic-macros-tricks/
  */
 
-#define _GET_ARG(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, N, ...) N
+#define Z_GET_ARG(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, N, ...) N
 
-#define _for_0(_call, ...)
-#define _for_1(_call, x) _call(x)
-#define _for_2(_call, x, ...) _call(x) _for_1(_call, ##__VA_ARGS__)
-#define _for_3(_call, x, ...) _call(x) _for_2(_call, ##__VA_ARGS__)
-#define _for_4(_call, x, ...) _call(x) _for_3(_call, ##__VA_ARGS__)
-#define _for_5(_call, x, ...) _call(x) _for_4(_call, ##__VA_ARGS__)
-#define _for_6(_call, x, ...) _call(x) _for_5(_call, ##__VA_ARGS__)
-#define _for_7(_call, x, ...) _call(x) _for_6(_call, ##__VA_ARGS__)
-#define _for_8(_call, x, ...) _call(x) _for_7(_call, ##__VA_ARGS__)
-#define _for_9(_call, x, ...) _call(x) _for_8(_call, ##__VA_ARGS__)
-#define _for_10(_call, x, ...) _call(x) _for_9(_call, ##__VA_ARGS__)
+#define _for_0(z_call, ...)
+#define _for_1(z_call, x) z_call(x)
+#define _for_2(z_call, x, ...) z_call(x) _for_1(z_call, ##__VA_ARGS__)
+#define _for_3(z_call, x, ...) z_call(x) _for_2(z_call, ##__VA_ARGS__)
+#define _for_4(z_call, x, ...) z_call(x) _for_3(z_call, ##__VA_ARGS__)
+#define _for_5(z_call, x, ...) z_call(x) _for_4(z_call, ##__VA_ARGS__)
+#define _for_6(z_call, x, ...) z_call(x) _for_5(z_call, ##__VA_ARGS__)
+#define _for_7(z_call, x, ...) z_call(x) _for_6(z_call, ##__VA_ARGS__)
+#define _for_8(z_call, x, ...) z_call(x) _for_7(z_call, ##__VA_ARGS__)
+#define _for_9(z_call, x, ...) z_call(x) _for_8(z_call, ##__VA_ARGS__)
+#define _for_10(z_call, x, ...) z_call(x) _for_9(z_call, ##__VA_ARGS__)
 
 #define FOR_EACH(x, ...) \
-	_GET_ARG(__VA_ARGS__, \
+	Z_GET_ARG(__VA_ARGS__, \
 	_for_10, _for_9, _for_8, _for_7, _for_6, _for_5, \
 	_for_4, _for_3, _for_2, _for_1, _for_0)(x, ##__VA_ARGS__)
 

@@ -68,7 +68,7 @@ config ASAN
 	help
 	  Builds Zephyr with Address Sanitizer enabled.  This is currently
 	  only supported by the native_posix port, and requires a recent-ish
-	  compiler with the `-fsanitize=address` command line option, and
+	  compiler with the ``-fsanitize=address`` command line option, and
 	  the libasan library.
 
 config STACK_USAGE
@@ -254,5 +254,24 @@ config TRACING_CPU_STATS_INTERVAL
 	depends on TRACING_CPU_STATS_LOG
 	help
 	  Time period of displaying information about CPU usage.
+
+config TRACING_CTF
+	bool "Tracing via Common Trace Format support"
+	select THREAD_MONITOR
+	select TRACING
+	help
+	  Enable tracing to a Common Trace Format stream. In order to use it a
+	  CTF bottom layer should be selected, such as TRACING_CTF_BOTTOM_POSIX.
+
+config TRACING_CTF_BOTTOM_POSIX
+	bool "CTF backend for the native_posix port, using a file in the host filesystem"
+	depends on TRACING_CTF
+	depends on ARCH_POSIX
+	help
+	  Enable POSIX backend for CTF tracing. It will output the CTF stream to a
+	  file using fwrite.
+
+
+source "subsys/debug/Kconfig.segger"
 
 endmenu

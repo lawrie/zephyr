@@ -50,8 +50,8 @@ extern "C" {
  */
 #define USBD_DEVICE_DESCR_DEFINE(p) \
 	static __in_section(usb, descriptor_##p, 0) __used
-#define USBD_CLASS_DESCR_DEFINE(p) \
-	static __in_section(usb, descriptor_##p, 1) __used
+#define USBD_CLASS_DESCR_DEFINE(p, instance) \
+	static __in_section(usb, descriptor_##p.1, instance) __used
 #define USBD_MISC_DESCR_DEFINE(p) \
 	static __in_section(usb, descriptor_##p, 2) __used
 #define USBD_USER_DESCR_DEFINE(p) \
@@ -72,7 +72,10 @@ extern "C" {
  *  USB configuration
  **************************************************************************/
 
-#define MAX_PACKET_SIZE0    64        /**< maximum packet size for EP 0 */
+#define USB_MAX_CTRL_MPS	64   /**< maximum packet size (MPS) for EP 0 */
+#define USB_MAX_FS_BULK_MPS	64   /**< full speed MPS for bulk EP */
+#define USB_MAX_FS_INT_MPS	64   /**< full speed MPS for interrupt EP */
+#define USB_MAX_FS_ISO_MPS	1023 /**< full speed MPS for isochronous EP */
 
 /*************************************************************************
  *  USB application interface
@@ -116,7 +119,8 @@ typedef int (*usb_request_handler)(struct usb_setup_packet *setup,
 /**
  * @brief Function for interface runtime configuration
  */
-typedef void (*usb_interface_config)(u8_t bInterfaceNumber);
+typedef void (*usb_interface_config)(struct usb_desc_header *head,
+				     u8_t bInterfaceNumber);
 
 /**
  * @brief USB Endpoint Configuration
@@ -189,7 +193,9 @@ struct usb_cfg_data {
 	/** Function for interface runtime configuration */
 	usb_interface_config interface_config;
 	/** Callback to be notified on USB connection status change */
-	usb_dc_status_callback cb_usb_status;
+	void (*cb_usb_status)(struct usb_cfg_data *cfg,
+			      enum usb_dc_status_code cb_status,
+			      const u8_t *param);
 	/** USB interface (Class) handler and storage space */
 	struct usb_interface_cfg_data interface;
 	/** Number of individual endpoints in the device configuration */
@@ -411,6 +417,18 @@ int usb_transfer_sync(u8_t ep, u8_t *data, size_t dlen, unsigned int flags);
  * @return 0 on success, negative errno code on fail.
  */
 void usb_cancel_transfer(u8_t ep);
+
+/**
+ * @brief Start the USB remote wakeup procedure
+ *
+ * Function to request a remote wakeup.
+ * This feature must be enabled in configuration, otherwise
+ * it will always return -ENOTSUP error.
+ *
+ * @return 0 on success, negative errno code on fail,
+ *         i.e. when the bus is already active.
+ */
+int usb_wakeup_request(void);
 
 /**
  * @}

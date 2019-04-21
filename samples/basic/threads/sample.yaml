@@ -3,7 +3,14 @@ sample:
     using K_THREAD_DEFINE
   name: Basic Thread Demo
 tests:
-  test:
+  sample.threads:
     tags: kernel threads gpio
-    # The filters below are from DTS
-    filter: LED0_GPIO_CONTROLLER and LED1_GPIO_CONTROLLER
+    filter: DT_GPIO_LEDS_LED0_GPIO_CONTROLLER and DT_GPIO_LEDS_LED1_GPIO_CONTROLLER
+    depends_on: gpio
+    harness: console
+    harness_config:
+      type: multi_line
+      ordered: false
+      regex:
+        - "Toggle USR0 LED(.*)"
+        - "Toggle USR1 LED(.*)"

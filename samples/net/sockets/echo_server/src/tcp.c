@@ -105,7 +105,8 @@ static int process_tcp(struct data *data)
 	struct sockaddr_in client_addr;
 	socklen_t client_addr_len = sizeof(client_addr);
 
-	LOG_INF("Waiting for TCP connection (%s)...", data->proto);
+	LOG_INF("Waiting for TCP connection on port %d (%s)...",
+		MY_PORT, data->proto);
 
 	client = accept(data->tcp.sock, (struct sockaddr *)&client_addr,
 			&client_addr_len);
@@ -157,7 +158,7 @@ static int process_tcp(struct data *data)
 			LOG_DBG("TCP (%s): Received and replied with %d bytes",
 				data->proto, offset);
 
-			if (++data->tcp.counter % 1000 == 0) {
+			if (++data->tcp.counter % 1000 == 0U) {
 				LOG_INF("%s TCP: Sent %u packets", data->proto,
 					data->tcp.counter);
 			}

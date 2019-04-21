@@ -12,10 +12,6 @@
 	compatible = "silabs,efr32mg_sltb004a", "silabs,efr32mg";
 
 	aliases {
-		i2c-0  = &i2c0;
-		i2c-1  = &i2c1;
-		usart-0 = &usart0;
-		leuart-0 = &leuart0;
 		led0 = &led0;
 		led1 = &led1;
 		sw0 = &button0;
@@ -58,22 +54,31 @@
 
 &usart0 {
 	current-speed = <115200>;
-	location = <0>;
+	location-rx = <GECKO_LOCATION(0) GECKO_PORT_A GECKO_PIN(1)>;
+	location-tx = <GECKO_LOCATION(0) GECKO_PORT_A GECKO_PIN(0)>;
 	status = "ok";
 };
 
 &leuart0 {
 	current-speed = <9600>;
-	location = <27>;
+	location-rx = <GECKO_LOCATION(27) GECKO_PORT_F GECKO_PIN(4)>;
+	location-tx = <GECKO_LOCATION(27) GECKO_PORT_F GECKO_PIN(3)>;
 	status = "ok";
 };
 
 &i2c0 {
-	location = <15>;
+	location-sda = <GECKO_LOCATION(15) GECKO_PORT_C GECKO_PIN(10)>;
+	location-scl = <GECKO_LOCATION(15) GECKO_PORT_C GECKO_PIN(11)>;
 	status = "ok";
 };
 
 &i2c1 {
-	location = <17>;
+	location-sda = <GECKO_LOCATION(17) GECKO_PORT_C GECKO_PIN(4)>;
+	location-scl = <GECKO_LOCATION(17) GECKO_PORT_C GECKO_PIN(5)>;
+	status = "ok";
+};
+
+&gpio {
+	location-swo = <0>;
 	status = "ok";
 };

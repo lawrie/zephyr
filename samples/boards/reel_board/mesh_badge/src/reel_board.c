@@ -85,12 +85,12 @@ static size_t print_line(enum font_size font_size, int row, const char *text,
 
 	cfb_framebuffer_set_font(epd_dev, font_size);
 
-	len = min(len, fonts[font_size].columns);
+	len = MIN(len, fonts[font_size].columns);
 	memcpy(line, text, len);
 	line[len] = '\0';
 
 	if (center) {
-		pad = (fonts[font_size].columns - len) / 2;
+		pad = (fonts[font_size].columns - len) / 2U;
 	} else {
 		pad = 0;
 	}
@@ -480,7 +480,27 @@ static void button_interrupt(struct device *dev, struct gpio_callback *cb,
 		return;
 	case SCREEN_MAIN:
 		if (pins & BIT(SW0_GPIO_PIN)) {
-			mesh_send_hello();
+			u32_t uptime = k_uptime_get_32();
+			static u32_t bad_count, press_ts;
+
+			if (uptime - press_ts < 500) {
+				bad_count++;
+			} else {
+				bad_count = 0U;
+			}
+
+			press_ts = uptime;
+
+			if (bad_count) {
+				if (bad_count > 5) {
+					mesh_send_baduser();
+					bad_count = 0U;
+				} else {
+					printk("Ignoring press\n");
+				}
+			} else {
+				mesh_send_hello();
+			}
 		}
 		return;
 	default:
@@ -557,8 +577,8 @@ static int erase_storage(void)
 
 	dev = device_get_binding(DT_FLASH_DEV_NAME);
 
-	return flash_erase(dev, FLASH_AREA_STORAGE_OFFSET,
-			   FLASH_AREA_STORAGE_SIZE);
+	return flash_erase(dev, DT_FLASH_AREA_STORAGE_OFFSET,
+			   DT_FLASH_AREA_STORAGE_SIZE);
 }
 
 void board_refresh_display(void)
@@ -568,7 +588,7 @@ void board_refresh_display(void)
 
 int board_init(void)
 {
-	epd_dev = device_get_binding(DT_SSD1673_DEV_NAME);
+	epd_dev = device_get_binding(DT_SOLOMON_SSD1673FB_0_LABEL);
 	if (epd_dev == NULL) {
 		printk("SSD1673 device not found\n");
 		return -ENODEV;

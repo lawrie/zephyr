@@ -1,9 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+
 # Use git if it is installed, to set BUILD_VERSION
 
 # https://cmake.org/cmake/help/latest/module/FindGit.html
 find_package(Git QUIET)
-if(GIT_FOUND)
-  execute_process(COMMAND ${GIT_EXECUTABLE} describe
+if(NOT BUILD_VERSION AND GIT_FOUND)
+  execute_process(
+    COMMAND ${GIT_EXECUTABLE} describe --abbrev=12
     WORKING_DIRECTORY                ${ZEPHYR_BASE}
     OUTPUT_VARIABLE                  BUILD_VERSION
     OUTPUT_STRIP_TRAILING_WHITESPACE

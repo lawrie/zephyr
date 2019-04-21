@@ -9,7 +9,7 @@
 
 static char enc_buf[128];
 static int enc_buf_cnt;
-static u8_t test_rwbs = 1;
+static u8_t test_rwbs = 1U;
 #define ENC_CTX_VAL 0x2018
 
 static int write_handler(void *ctx, off_t off, char const *buf, size_t len)
@@ -33,11 +33,6 @@ static void test_encoding_iteration(char const *name, char const *value,
 	test_rwbs = wbs;
 
 	settings_line_io_init(NULL, write_handler, NULL, wbs);
-
-	rc = settings_line_len_calc(name, strlen(value));
-
-	zassert_equal(rc, exp_len, "Wrong line length calculated, was %d.\n",
-		      rc);
 
 	enc_buf_cnt = 0;
 
@@ -85,7 +80,7 @@ static int read_handle(void *ctx, off_t off, char *buf, size_t *len)
 		return -EIO;
 	}
 
-	r_len = min(sizeof(enc_buf) - off, *len);
+	r_len = MIN(sizeof(enc_buf) - off, *len);
 	if (r_len <= 0) {
 		*len = 0;
 		return 0;
@@ -114,7 +109,7 @@ void test_raw_read_iteration(u8_t rbs, size_t off, size_t len)
 
 	zassert_equal(rc, 0, "Can't read the line %d.\n", rc);
 
-	expected = min((sizeof(enc_buf) - off), len);
+	expected = MIN((sizeof(enc_buf) - off), len);
 	zassert_equal(expected, len_read, "Unexpected read size\n");
 
 	zassert_true(memcmp(&enc_buf[off], &read_buf[4], len_read) == 0,

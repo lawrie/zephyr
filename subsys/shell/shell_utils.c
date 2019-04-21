@@ -225,7 +225,7 @@ static inline u32_t shell_root_cmd_count(void)
 }
 
 /* Function returning pointer to root command matching requested syntax. */
-const struct shell_cmd_entry *shell_root_cmd_find(const char *syntax)
+const struct shell_static_entry *shell_root_cmd_find(const char *syntax)
 {
 	const size_t cmd_count = shell_root_cmd_count();
 	const struct shell_cmd_entry *cmd;
@@ -233,7 +233,7 @@ const struct shell_cmd_entry *shell_root_cmd_find(const char *syntax)
 	for (size_t cmd_idx = 0; cmd_idx < cmd_count; ++cmd_idx) {
 		cmd = shell_root_cmd_get(cmd_idx);
 		if (strcmp(syntax, cmd->u.entry->syntax) == 0) {
-			return cmd;
+			return cmd->u.entry;
 		}
 	}
 
@@ -347,9 +347,9 @@ static void buffer_trim(char *buff, u16_t *buff_len)
 		return;
 	}
 
-	while (isspace((int) buff[*buff_len - 1])) {
-		*buff_len -= 1;
-		if (*buff_len == 0) {
+	while (isspace((int) buff[*buff_len - 1U])) {
+		*buff_len -= 1U;
+		if (*buff_len == 0U) {
 			buff[0] = '\0';
 			return;
 		}
@@ -359,16 +359,12 @@ static void buffer_trim(char *buff, u16_t *buff_len)
 	/* Counting whitespace characters starting from beginning of the
 	 * command.
 	 */
-	while (isspace((int) buff[i++])) {
-		if (i == 0) {
-			buff[0] = '\0';
-			return;
-		}
-	}
+	while (isspace((int) buff[i++]))
+      ;
 
 	/* Removing counted whitespace characters. */
 	if (--i > 0) {
-		memmove(buff, buff + i, (*buff_len + 1) - i); /* +1 for '\0' */
+		memmove(buff, buff + i, (*buff_len + 1U) - i); /* +1 for '\0' */
 		*buff_len = *buff_len - i;
 	}
 }

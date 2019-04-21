@@ -9,20 +9,13 @@
 #include <flash.h>
 #include <flash_map.h>
 
-
-
-#define FLASH_AREA_BOOTLOADER                    0
-#define FLASH_AREA_IMAGE_0                       1
-#define FLASH_AREA_IMAGE_1                       2
-#define FLASH_AREA_IMAGE_SCRATCH                 3
-
 extern int flash_map_entries;
 struct flash_sector fs_sectors[256];
 
 /**
- * @brief Test flash_area_to_sectors()
+ * @brief Test flash_area_get_sectors()
  */
-void test_flash_area_to_sectors(void)
+void test_flash_area_get_sectors(void)
 {
 	const struct flash_area *fa;
 	u32_t sec_cnt;
@@ -33,7 +26,7 @@ void test_flash_area_to_sectors(void)
 	u8_t rd[256];
 	struct device *flash_dev;
 
-	rc = flash_area_open(FLASH_AREA_IMAGE_1, &fa);
+	rc = flash_area_open(DT_FLASH_AREA_IMAGE_1_ID, &fa);
 	zassert_true(rc == 0, "flash_area_open() fail");
 
 	/* First erase the area so it's ready for use. */
@@ -51,7 +44,8 @@ void test_flash_area_to_sectors(void)
 	(void)memset(wd, 0xa5, sizeof(wd));
 
 	sec_cnt = ARRAY_SIZE(fs_sectors);
-	rc = flash_area_get_sectors(FLASH_AREA_IMAGE_1, &sec_cnt, fs_sectors);
+	rc = flash_area_get_sectors(DT_FLASH_AREA_IMAGE_1_ID, &sec_cnt,
+				    fs_sectors);
 	zassert_true(rc == 0, "flash_area_get_sectors failed");
 
 	/* write stuff to beginning of every sector */
@@ -106,6 +100,6 @@ void test_flash_area_to_sectors(void)
 void test_main(void)
 {
 	ztest_test_suite(test_flash_map,
-			 ztest_unit_test(test_flash_area_to_sectors));
+			 ztest_unit_test(test_flash_area_get_sectors));
 	ztest_run_test_suite(test_flash_map);
 }

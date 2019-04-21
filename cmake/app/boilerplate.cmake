@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 # This file must be included into the toplevel CMakeLists.txt file of
 # Zephyr applications, e.g. zephyr/samples/hello_world/CMakeLists.txt
 # must start with the line:
@@ -6,13 +8,6 @@
 #
 # It exists to reduce boilerplate code that Zephyr expects to be in
 # application CMakeLists.txt code.
-#
-# Omitting it is permitted, but doing so incurs a maintenance cost as
-# the application must manage upstream changes to this file.
-
-# app is a CMake library containing all the application code and is
-# modified by the entry point ${APPLICATION_SOURCE_DIR}/CMakeLists.txt
-# that was specified when cmake was called.
 
 # CMake version 3.13.1 is the real minimum supported version.
 #
@@ -28,12 +23,10 @@ cmake_minimum_required(VERSION 3.13.1)
 # CMP0002: "Logical target names must be globally unique"
 cmake_policy(SET CMP0002 NEW)
 
-if(NOT (${CMAKE_VERSION} VERSION_LESS "3.13.0"))
-  # Use the old CMake behaviour until 3.13.x is required and the build
-  # scripts have been ported to the new behaviour.
-  # CMP0079: "target_link_libraries() allows use with targets in other directories"
-  cmake_policy(SET CMP0079 OLD)
-endif()
+# Use the old CMake behaviour until the build scripts have been ported
+# to the new behaviour.
+# CMP0079: "target_link_libraries() allows use with targets in other directories"
+cmake_policy(SET CMP0079 OLD)
 
 define_property(GLOBAL PROPERTY ZEPHYR_LIBS
     BRIEF_DOCS "Global list of all Zephyr CMake libs that should be linked in"
@@ -84,8 +77,12 @@ set(PROJECT_SOURCE_DIR $ENV{ZEPHYR_BASE})
 # Convert path to use the '/' separator
 string(REPLACE "\\" "/" PROJECT_SOURCE_DIR ${PROJECT_SOURCE_DIR})
 
+# Remove trailing '/', it results in ugly paths and also exposes some bugs
+string(REGEX REPLACE "\/+$" "" PROJECT_SOURCE_DIR ${PROJECT_SOURCE_DIR})
+
 set(ZEPHYR_BINARY_DIR ${PROJECT_BINARY_DIR})
 set(ZEPHYR_BASE ${PROJECT_SOURCE_DIR})
+set(ENV{ZEPHYR_BASE}   ${ZEPHYR_BASE})
 
 set(AUTOCONF_H ${__build_dir}/include/generated/autoconf.h)
 # Re-configure (Re-execute all CMakeLists.txt code) when autoconf.h changes
@@ -186,6 +183,65 @@ message(STATUS "Selected BOARD ${BOARD}")
 # Store the selected board in the cache
 set(CACHED_BOARD ${BOARD} CACHE STRING "Selected board")
 
+# The SHIELD can be set by 3 sources. Through environment variables,
+# through the cmake CLI, and through CMakeLists.txt.
+#
+# CLI has the highest precedence, then comes environment variables,
+# and then finally CMakeLists.txt.
+#
+# A user can ignore all the precedence rules if he simply always uses
+# the same source. E.g. always specifies -DSHIELD= on the command line,
+# always has an environment variable set, or always has a set(SHIELD
+# foo) line in his CMakeLists.txt and avoids mixing sources.
+#
+# The selected SHIELD can be accessed through the variable 'SHIELD'.
+
+# Read out the cached shield value if present
+get_property(cached_shield_value CACHE SHIELD PROPERTY VALUE)
+
+# There are actually 4 sources, the three user input sources, and the
+# previously used value (CACHED_SHIELD). The previously used value has
+# precedence, and if we detect that the user is trying to change the
+# value we give him a warning about needing to clean the build
+# directory to be able to change shields.
+
+set(shield_cli_argument ${cached_shield_value}) # Either new or old
+if(shield_cli_argument STREQUAL CACHED_SHIELD)
+  # We already have a CACHED_SHIELD so there is no new input on the CLI
+  unset(shield_cli_argument)
+endif()
+
+set(shield_app_cmake_lists ${SHIELD})
+if(cached_shield_value STREQUAL SHIELD)
+  # The app build scripts did not set a default, The SHIELD we are
+  # reading is the cached value from the CLI
+  unset(shield_app_cmake_lists)
+endif()
+
+if(CACHED_SHIELD)
+  # Warn the user if it looks like he is trying to change the shield
+  # without cleaning first
+  if(shield_cli_argument)
+    if(NOT (CACHED_SHIELD STREQUAL shield_cli_argument))
+      message(WARNING "The build directory must be cleaned pristinely when changing shields")
+      # TODO: Support changing shields without requiring a clean build
+    endif()
+  endif()
+
+  set(SHIELD ${CACHED_SHIELD})
+elseif(shield_cli_argument)
+  set(SHIELD ${shield_cli_argument})
+
+elseif(DEFINED ENV{SHIELD})
+  set(SHIELD $ENV{SHIELD})
+
+elseif(shield_app_cmake_lists)
+  set(SHIELD ${shield_app_cmake_lists})
+endif()
+
+# Store the selected shield in the cache
+set(CACHED_SHIELD ${SHIELD} CACHE STRING "Selected shield")
+
 # 'BOARD_ROOT' is a prioritized list of directories where boards may
 # be found. It always includes ${ZEPHYR_BASE} at the lowest priority.
 list(APPEND BOARD_ROOT ${ZEPHYR_BASE})
@@ -194,6 +250,12 @@ if(NOT SOC_ROOT)
   set(SOC_DIR ${ZEPHYR_BASE}/soc)
 else()
   set(SOC_DIR ${SOC_ROOT}/soc)
+endif()
+
+if(NOT ARCH_ROOT)
+  set(ARCH_DIR ${ZEPHYR_BASE}/arch)
+else()
+  set(ARCH_DIR ${ARCH_ROOT}/arch)
 endif()
 
 # Use BOARD to search for a '_defconfig' file.
@@ -210,12 +272,64 @@ foreach(root ${BOARD_ROOT})
   if(BOARD_DIR AND NOT (${root} STREQUAL ${ZEPHYR_BASE}))
     set(USING_OUT_OF_TREE_BOARD 1)
   endif()
+
+  set(shield_dir ${root}/boards/shields)
+  if(DEFINED SHIELD)
+     string(REPLACE " " ";" SHIELD_AS_LIST "${SHIELD}")
+  endif()
+  # Match the .overlay files in the shield directories to make sure we are
+  # finding shields, e.g. x_nucleo_iks01a1/x_nucleo_iks01a1.overlay
+  file(GLOB_RECURSE shields_refs_list
+    RELATIVE ${shield_dir}
+    ${shield_dir}/*/*.overlay
+    )
+
+  # The above gives a list like
+  # x_nucleo_iks01a1/x_nucleo_iks01a1.overlay;x_nucleo_iks01a2/x_nucleo_iks01a2.overlay
+  # we construct a list of shield names by extracting file name and
+  # removing the extension.
+  foreach(shield_path ${shields_refs_list})
+    get_filename_component(shield ${shield_path} NAME_WE)
+    list(APPEND SHIELD_LIST ${shield})
+  endforeach()
+
+  if(DEFINED SHIELD)
+    foreach(s ${SHIELD_AS_LIST})
+      list(REMOVE_ITEM SHIELD ${s})
+      list(FIND SHIELD_LIST ${s} _idx)
+      if (NOT _idx EQUAL -1)
+        list(GET shields_refs_list ${_idx} s_path)
+
+        # if shield config flag is on, add shield overlay to the shield overlays
+        # list and dts_fixup file to the shield fixup file
+        list(APPEND
+          shield_dts_files
+          ${shield_dir}/${s_path}
+        )
+        list(APPEND
+          shield_dts_fixups
+          ${shield_dir}/${s}/dts_fixup.h
+        )
+      else()
+        list(APPEND NOT_FOUND_SHIELD_LIST ${s})
+      endif()
+    endforeach()
+  endif()
 endforeach()
 
 if(NOT BOARD_DIR)
   message("No board named '${BOARD}' found")
   print_usage()
   unset(CACHED_BOARD CACHE)
+  message(FATAL_ERROR "Invalid usage")
+endif()
+
+if(DEFINED SHIELD AND DEFINED NOT_FOUND_SHIELD_LIST)
+  foreach (s ${NOT_FOUND_SHIELD_LIST})
+    message("No shield named '${s}' found")
+  endforeach()
+  print_usage()
+  unset(CACHED_SHIELD CACHE)
   message(FATAL_ERROR "Invalid usage")
 endif()
 
@@ -231,10 +345,14 @@ elseif(DEFINED ENV{CONF_FILE})
   set(CONF_FILE $ENV{CONF_FILE})
 
 elseif(COMMAND set_conf_file)
+  message(WARNING "'set_conf_file' is deprecated, it will be removed in a future release.")
   set_conf_file()
 
 elseif(EXISTS   ${APPLICATION_SOURCE_DIR}/prj_${BOARD}.conf)
   set(CONF_FILE ${APPLICATION_SOURCE_DIR}/prj_${BOARD}.conf)
+
+elseif(EXISTS   ${APPLICATION_SOURCE_DIR}/boards/${BOARD}.conf)
+  set(CONF_FILE ${APPLICATION_SOURCE_DIR}/prj.conf ${APPLICATION_SOURCE_DIR}/boards/${BOARD}.conf)
 
 elseif(EXISTS   ${APPLICATION_SOURCE_DIR}/prj.conf)
   set(CONF_FILE ${APPLICATION_SOURCE_DIR}/prj.conf)
@@ -280,7 +398,9 @@ include(${ZEPHYR_BASE}/cmake/host-tools.cmake)
 # preprocess DT sources, and then, after we have finished processing
 # both DT and Kconfig we complete the target-specific configuration,
 # and possibly change the toolchain.
+include(${ZEPHYR_BASE}/cmake/zephyr_module.cmake)
 include(${ZEPHYR_BASE}/cmake/generic_toolchain.cmake)
+include(${ZEPHYR_BASE}/cmake/dts.cmake)
 include(${ZEPHYR_BASE}/cmake/kconfig.cmake)
 
 set(SOC_NAME   ${CONFIG_SOC})
@@ -292,8 +412,6 @@ if("${SOC_SERIES}" STREQUAL "")
 else()
   set(SOC_PATH ${SOC_FAMILY}/${SOC_SERIES})
 endif()
-
-include(${ZEPHYR_BASE}/cmake/dts.cmake)
 
 include(${ZEPHYR_BASE}/cmake/target_toolchain.cmake)
 

@@ -27,14 +27,15 @@
 #define PWM_DRIVER CONFIG_PWM_QMSI_DEV_NAME
 #define PWM_CHANNEL 0
 #elif defined(CONFIG_SOC_FAMILY_NRF)
+#if defined(CONFIG_PWM_NRF5_SW)
 #define PWM_DRIVER CONFIG_PWM_NRF5_SW_0_DEV_NAME
+#else
+#define PWM_DRIVER DT_NORDIC_NRF_PWM_PWM_0_LABEL
+#endif  /* CONFIG_PWM_NRF5_SW */
 #define PWM_CHANNEL LED0_GPIO_PIN
 #elif defined(CONFIG_BOARD_COLIBRI_IMX7D_M4)
 #define PWM_DRIVER	PWM_1_LABEL
 #define PWM_CHANNEL	0
-#elif defined(CONFIG_SOC_FAMILY_NRF)
-#define PWM_DRIVER	CONFIG_PWM_NRF5_SW_0_DEV_NAME
-#define PWM_CHANNEL	LED0_GPIO_PIN
 #elif defined(PWM_LED0_PWM_CONTROLLER) && defined(PWM_LED0_PWM_CHANNEL)
 /* get the defines from dt (based on alias 'pwm-led0') */
 #define PWM_DRIVER	PWM_LED0_PWM_CONTROLLER
@@ -44,7 +45,7 @@
 #endif
 
 /* in micro second */
-#define MIN_PERIOD	(USEC_PER_SEC / 64)
+#define MIN_PERIOD	(USEC_PER_SEC / 64U)
 
 /* in micro second */
 #define MAX_PERIOD	USEC_PER_SEC
@@ -65,20 +66,20 @@ void main(void)
 
 	while (1) {
 		if (pwm_pin_set_usec(pwm_dev, PWM_CHANNEL,
-				     period, period / 2)) {
+				     period, period / 2U)) {
 			printk("pwm pin set fails\n");
 			return;
 		}
 
 		if (dir) {
-			period *= 2;
+			period *= 2U;
 
 			if (period > MAX_PERIOD) {
 				dir = 0U;
 				period = MAX_PERIOD;
 			}
 		} else {
-			period /= 2;
+			period /= 2U;
 
 			if (period < MIN_PERIOD) {
 				dir = 1U;
@@ -86,6 +87,6 @@ void main(void)
 			}
 		}
 
-		k_sleep(MSEC_PER_SEC * 4);
+		k_sleep(MSEC_PER_SEC * 4U);
 	}
 }

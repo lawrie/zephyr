@@ -7,7 +7,7 @@
 
 #include <soc.h>
 #include <clock_control.h>
-#include <drivers/clock_control/nrf5_clock_control.h>
+#include <drivers/clock_control/nrf_clock_control.h>
 #include <system_timer.h>
 #include <sys_clock.h>
 #include <nrf_rtc.h>
@@ -49,7 +49,7 @@ static u32_t counter(void)
  * it by pointer at runtime, maybe?) so we don't have this leaky
  * symbol.
  */
-void rtc1_nrf5_isr(void *arg)
+void rtc1_nrf_isr(void *arg)
 {
 	ARG_UNUSED(arg);
 	RTC->EVENTS_COMPARE[0] = 0;
@@ -70,7 +70,7 @@ void rtc1_nrf5_isr(void *arg)
 	}
 
 	k_spin_unlock(&lock, key);
-	z_clock_announce(dticks);
+	z_clock_announce(IS_ENABLED(CONFIG_TICKLESS_KERNEL) ? dticks : 1);
 }
 
 int z_clock_driver_init(struct device *device)
@@ -79,12 +79,12 @@ int z_clock_driver_init(struct device *device)
 
 	ARG_UNUSED(device);
 
-	clock = device_get_binding(CONFIG_CLOCK_CONTROL_NRF5_K32SRC_DRV_NAME);
+	clock = device_get_binding(DT_NORDIC_NRF_CLOCK_0_LABEL "_32K");
 	if (!clock) {
 		return -1;
 	}
 
-	clock_control_on(clock, (void *)CLOCK_CONTROL_NRF5_K32SRC);
+	clock_control_on(clock, (void *)CLOCK_CONTROL_NRF_K32SRC);
 
 	/* TODO: replace with counter driver to access RTC */
 	nrf_rtc_prescaler_set(RTC, 0);
@@ -94,10 +94,10 @@ int z_clock_driver_init(struct device *device)
 
 	/* Clear the event flag and possible pending interrupt */
 	nrf_rtc_event_clear(RTC, NRF_RTC_EVENT_COMPARE_0);
-	NVIC_ClearPendingIRQ(NRF5_IRQ_RTC1_IRQn);
+	NVIC_ClearPendingIRQ(RTC1_IRQn);
 
-	IRQ_CONNECT(NRF5_IRQ_RTC1_IRQn, 1, rtc1_nrf5_isr, 0, 0);
-	irq_enable(NRF5_IRQ_RTC1_IRQn);
+	IRQ_CONNECT(RTC1_IRQn, 1, rtc1_nrf_isr, 0, 0);
+	irq_enable(RTC1_IRQn);
 
 	nrf_rtc_task_trigger(RTC, NRF_RTC_TASK_CLEAR);
 	nrf_rtc_task_trigger(RTC, NRF_RTC_TASK_START);
@@ -115,7 +115,7 @@ void z_clock_set_timeout(s32_t ticks, bool idle)
 
 #ifdef CONFIG_TICKLESS_KERNEL
 	ticks = (ticks == K_FOREVER) ? MAX_TICKS : ticks;
-	ticks = max(min(ticks - 1, (s32_t)MAX_TICKS), 0);
+	ticks = MAX(MIN(ticks - 1, (s32_t)MAX_TICKS), 0);
 
 	k_spinlock_key_t key = k_spin_lock(&lock);
 	u32_t cyc, t = counter();
@@ -148,7 +148,7 @@ u32_t z_clock_elapsed(void)
 	return ret;
 }
 
-u32_t _timer_cycle_get_32(void)
+u32_t z_timer_cycle_get_32(void)
 {
 	k_spinlock_key_t key = k_spin_lock(&lock);
 	u32_t ret = counter_sub(counter(), last_count) + last_count;

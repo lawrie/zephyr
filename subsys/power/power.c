@@ -8,17 +8,18 @@
 #include <kernel.h>
 #include <init.h>
 #include <string.h>
-#include <soc.h>
+#include <power.h>
 #include "policy/pm_policy.h"
 
-#define LOG_LEVEL CONFIG_PM_LOG_LEVEL
+#define LOG_LEVEL CONFIG_SYS_PM_LOG_LEVEL
 #include <logging/log.h>
 LOG_MODULE_REGISTER(power);
 
 static int post_ops_done = 1;
+static enum power_states forced_pm_state = SYS_POWER_STATE_AUTO;
 static enum power_states pm_state;
 
-#ifdef CONFIG_PM_CONTROL_OS_DEBUG
+#ifdef CONFIG_SYS_PM_DEBUG
 
 struct pm_debug_info {
 	u32_t count;
@@ -63,76 +64,83 @@ static void sys_pm_log_debug_info(enum power_states state) { }
 void sys_pm_dump_debug_info(void) { }
 #endif
 
-int sys_suspend(s32_t ticks)
+__weak void sys_pm_notify_power_state_entry(enum power_states state)
 {
-	int sys_state;
-
-	post_ops_done = 0;
-
-	sys_state = sys_pm_policy_next_state(ticks, &pm_state);
-
-#ifdef CONFIG_PM_CONTROL_STATE_LOCK
-	/* Check if PM state is locked */
-	if ((sys_state != SYS_PM_NOT_HANDLED) &&
-			!sys_pm_ctrl_is_state_enabled(sys_state)) {
-		LOG_DBG("PM state locked %d\n", sys_state);
-		return SYS_PM_NOT_HANDLED;
-	}
-#endif
-
-	switch (sys_state) {
-	case SYS_PM_LOW_POWER_STATE:
-		sys_pm_notify_lps_entry(pm_state);
-
-		/* Do CPU LPS operations */
-		sys_pm_debug_start_timer();
-		sys_set_power_state(pm_state);
-		sys_pm_debug_stop_timer();
-		break;
-	case SYS_PM_DEEP_SLEEP:
-		/* Don't need pm idle exit event notification */
-		sys_pm_idle_exit_notification_disable();
-
-		sys_pm_notify_lps_entry(pm_state);
-
-		/* Save device states and turn off peripherals as necessary */
-		if (sys_pm_suspend_devices()) {
-			LOG_ERR("System level device suspend failed\n");
-			break;
-		}
-
-		/* Enter CPU deep sleep state */
-		sys_pm_debug_start_timer();
-		sys_set_power_state(pm_state);
-		sys_pm_debug_stop_timer();
-
-		/* Turn on peripherals and restore device states as necessary */
-		sys_pm_resume_devices();
-		break;
-	default:
-		/* No PM operations */
-		LOG_DBG("\nNo PM operations done\n");
-		break;
-	}
-
-	if (sys_state != SYS_PM_NOT_HANDLED) {
-
-		sys_pm_log_debug_info(pm_state);
-		/*
-		 * Do any arch or soc specific post operations specific to the
-		 * power state.
-		 */
-		if (!post_ops_done) {
-			post_ops_done = 1;
-			sys_pm_notify_lps_exit(pm_state);
-			sys_power_state_post_ops(pm_state);
-		}
-	}
-
-	return sys_state;
+	/* This function can be overridden by the application. */
 }
 
-void sys_resume(void)
+__weak void sys_pm_notify_power_state_exit(enum power_states state)
+{
+	/* This function can be overridden by the application. */
+}
+
+void sys_pm_force_power_state(enum power_states state)
+{
+	__ASSERT(state >= SYS_POWER_STATE_AUTO &&
+		 state <  SYS_POWER_STATE_MAX,
+		 "Invalid power state %d!", state);
+
+	forced_pm_state = state;
+}
+
+enum power_states _sys_suspend(s32_t ticks)
+{
+	bool deep_sleep;
+
+	pm_state = (forced_pm_state == SYS_POWER_STATE_AUTO) ?
+		   sys_pm_policy_next_state(ticks) : forced_pm_state;
+
+	if (pm_state == SYS_POWER_STATE_ACTIVE) {
+		LOG_DBG("No PM operations done.");
+		return pm_state;
+	}
+
+	deep_sleep = IS_ENABLED(CONFIG_SYS_POWER_DEEP_SLEEP_STATES) ?
+		     sys_pm_is_deep_sleep_state(pm_state) : 0;
+
+	post_ops_done = 0;
+	sys_pm_notify_power_state_entry(pm_state);
+
+	if (deep_sleep) {
+#if CONFIG_DEVICE_POWER_MANAGEMENT
+		/* Suspend peripherals. */
+		if (sys_pm_suspend_devices()) {
+			LOG_ERR("System level device suspend failed!");
+			sys_pm_notify_power_state_exit(pm_state);
+			pm_state = SYS_POWER_STATE_ACTIVE;
+			return pm_state;
+		}
+#endif
+		/*
+		 * Disable idle exit notification as it is not needed
+		 * in deep sleep mode.
+		 */
+		_sys_pm_idle_exit_notification_disable();
+	}
+
+	/* Enter power state */
+	sys_pm_debug_start_timer();
+	sys_set_power_state(pm_state);
+	sys_pm_debug_stop_timer();
+
+#if CONFIG_DEVICE_POWER_MANAGEMENT
+	if (deep_sleep) {
+		/* Turn on peripherals and restore device states as necessary */
+		sys_pm_resume_devices();
+	}
+#endif
+	sys_pm_log_debug_info(pm_state);
+
+	if (!post_ops_done) {
+		post_ops_done = 1;
+		sys_pm_notify_power_state_exit(pm_state);
+		_sys_pm_power_state_exit_post_ops(pm_state);
+	}
+
+	return pm_state;
+}
+
+void _sys_resume(void)
 {
 	/*
 	 * This notification is called from the ISR of the event
@@ -146,16 +154,17 @@ void sys_resume(void)
 	 * The kernel scheduler will get control after the ISR finishes
 	 * and it may schedule another thread.
 	 *
-	 * Call sys_pm_idle_exit_notification_disable() if this
+	 * Call _sys_pm_idle_exit_notification_disable() if this
 	 * notification is not required.
 	 */
 	if (!post_ops_done) {
 		post_ops_done = 1;
-		sys_pm_notify_lps_exit(pm_state);
-		sys_power_state_post_ops(pm_state);
+		sys_pm_notify_power_state_exit(pm_state);
+		_sys_pm_power_state_exit_post_ops(pm_state);
 	}
 }
 
+#if CONFIG_DEVICE_POWER_MANAGEMENT
 static int sys_pm_init(struct device *dev)
 {
 	ARG_UNUSED(dev);
@@ -165,3 +174,4 @@ static int sys_pm_init(struct device *dev)
 }
 
 SYS_INIT(sys_pm_init, APPLICATION, CONFIG_KERNEL_INIT_PRIORITY_DEFAULT);
+#endif /* CONFIG_DEVICE_POWER_MANAGEMENT */

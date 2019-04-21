@@ -33,6 +33,8 @@ extern "C" {
  * @{
  */
 
+/** @cond INTERNAL_HIDDEN */
+
 /* Network subsystem logging helpers */
 #include <logging/log.h>
 
@@ -47,6 +49,8 @@ extern "C" {
 #define NET_ASSERT(cond) __ASSERT_NO_MSG(cond)
 #define NET_ASSERT_INFO(cond, fmt, ...) __ASSERT(cond, fmt, ##__VA_ARGS__)
 
+/** @endcond */
+
 #include <kernel.h>
 
 struct net_buf;
@@ -60,20 +64,33 @@ struct net_if;
  * @brief Net Verdict
  */
 enum net_verdict {
-	NET_OK,		/** Packet has been taken care of */
-	NET_CONTINUE,	/** Packet has not been touched,
-			    other part should decide about its fate */
-	NET_DROP,	/** Packet must be dropped */
+	/** Packet has been taken care of. */
+	NET_OK,
+	/** Packet has not been touched, other part should decide about its
+	 * fate.
+	 */
+	NET_CONTINUE,
+	/** Packet must be dropped. */
+	NET_DROP,
 };
 
-/* Called by lower network stack when a network packet has been received */
+/**
+ * @brief Called by lower network stack or network device driver when
+ * a network packet has been received. The function will push the packet up in
+ * the network stack for further processing.
+ *
+ * @param iface Network interface where the packet was received.
+ * @param pkt Network packet data.
+ *
+ * @return 0 if ok, <0 if error.
+ */
 int net_recv_data(struct net_if *iface, struct net_pkt *pkt);
 
 /**
  * @brief Send data to network.
  *
  * @details Send data to network. This should not be used normally by
- * applications as it requires that the pktfer and fragments are properly
+ * applications as it requires that the network packet is properly
  * constructed.
  *
  * @param pkt Network packet.
@@ -83,6 +100,7 @@ int net_recv_data(struct net_if *iface, struct net_pkt *pkt);
  */
 int net_send_data(struct net_pkt *pkt);
 
+/** @cond INTERNAL_HIDDEN */
 /*
  * The net_stack_info struct needs to be aligned to 32 byte boundary,
  * otherwise the __net_stack_end will point to wrong location and looping
@@ -168,7 +186,6 @@ struct net_stack_info {
 
 #define NET_STACK_DEFINE_EMBEDDED(name, size) char name[size]
 
-/** @cond ignore */
 #if defined(CONFIG_INIT_STACKS)
 #include <misc/stack.h>
 
@@ -189,7 +206,6 @@ void net_analyze_stack(const char *name, const char *stack, size_t size);
 #define net_analyze_stack(...)
 #define net_analyze_stack_get_values(...)
 #endif
-/* @endcond */
 
 /* Some helper defines for traffic class support */
 #if defined(CONFIG_NET_TC_TX_COUNT) && defined(CONFIG_NET_TC_RX_COUNT)
@@ -206,6 +222,8 @@ void net_analyze_stack(const char *name, const char *stack, size_t size);
 #define NET_TC_RX_COUNT 1
 #define NET_TC_COUNT 1
 #endif /* CONFIG_NET_TC_TX_COUNT && CONFIG_NET_TC_RX_COUNT */
+
+/* @endcond */
 
 /**
  * @}

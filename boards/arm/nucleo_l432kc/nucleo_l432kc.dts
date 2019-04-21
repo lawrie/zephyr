@@ -59,7 +59,7 @@
 &can1 {
 	pinctrl-0 = <&can_pins_a>;
 	pinctrl-names = "default";
-	bus-speed = <250000>;
+	bus-speed = <125000>;
 	status = "ok";
 };
 
@@ -74,7 +74,7 @@
 		#size-cells = <1>;
 
 		/*
-		 * Reserve the final 16 KiB for the application.
+		 * Reserve the final 16 KiB for file system partition
 		 */
 		storage_partition: partition@3c000 {
 			label = "storage";

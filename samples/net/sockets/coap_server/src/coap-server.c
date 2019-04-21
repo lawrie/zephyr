@@ -16,8 +16,8 @@ LOG_MODULE_REGISTER(net_coap_server_sample, LOG_LEVEL_DBG);
 #include <net/net_mgmt.h>
 #include <net/net_ip.h>
 #include <net/udp.h>
-#include <net/coap_sock.h>
-#include <net/coap_link_format_sock.h>
+#include <net/coap.h>
+#include <net/coap_link_format.h>
 
 #include "net_private.h"
 
@@ -756,10 +756,10 @@ static int large_get(struct coap_resource *resource,
 		goto end;
 	}
 
-	size = min(coap_block_size_to_bytes(ctx.block_size),
+	size = MIN(coap_block_size_to_bytes(ctx.block_size),
 		   ctx.total_size - ctx.current);
 
-	memset(payload, 'A', min(size, sizeof(payload)));
+	memset(payload, 'A', MIN(size, sizeof(payload)));
 
 	r = coap_packet_append_payload(&response, (u8_t *)payload, size);
 	if (r < 0) {
@@ -995,7 +995,7 @@ static void update_counter(struct k_work *work)
 		coap_resource_notify(resource_to_notify);
 	}
 
-	k_delayed_work_submit(&observer_work, 5 * MSEC_PER_SEC);
+	k_delayed_work_submit(&observer_work, MSEC_PER_SEC * 5U);
 }
 
 static int create_pending_request(struct coap_packet *response,
@@ -1060,7 +1060,7 @@ static int send_notification_packet(const struct sockaddr *addr,
 		goto end;
 	}
 
-	if (age >= 2) {
+	if (age >= 2U) {
 		r = coap_append_option_int(&response, COAP_OPTION_OBSERVE, age);
 		if (r < 0) {
 			goto end;
@@ -1099,7 +1099,7 @@ static int send_notification_packet(const struct sockaddr *addr,
 		}
 	}
 
-	k_delayed_work_submit(&observer_work, 5 * MSEC_PER_SEC);
+	k_delayed_work_submit(&observer_work, MSEC_PER_SEC * 5U);
 
 	r = send_coap_reply(&response, addr, addr_len);
 

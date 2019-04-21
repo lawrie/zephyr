@@ -1,4 +1,8 @@
-
+/*
+ * Copyright (c) 2018 Intel Corporation
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 #include <zephyr.h>
 #include <kernel_structs.h>
 #include <init.h>
@@ -55,6 +59,7 @@ static void send_task_list_cb(void)
 
 	for (thread = _kernel.threads; thread; thread = thread->next_thread) {
 		char name[20];
+		const char *tname = k_thread_name_get(thread);
 
 		if (is_idle_thread(thread)) {
 			continue;
@@ -64,7 +69,7 @@ static void send_task_list_cb(void)
 			 (uintptr_t)&thread->entry);
 		SEGGER_SYSVIEW_SendTaskInfo(&(SEGGER_SYSVIEW_TASKINFO) {
 			.TaskID = (u32_t)(uintptr_t)thread,
-			.sName = name,
+		      .sName = tname?tname:name,
 			.StackSize = thread->stack_info.size,
 			.StackBase = thread->stack_info.start,
 			.Prio = thread->base.prio,
@@ -90,9 +95,11 @@ static int sysview_init(struct device *arg)
 	ARG_UNUSED(arg);
 
 	SEGGER_SYSVIEW_Conf();
-	SEGGER_SYSVIEW_Start();
+	if (IS_ENABLED(CONFIG_SEGGER_SYSTEMVIEW_BOOT_ENABLE)) {
+		SEGGER_SYSVIEW_Start();
+	}
 	return 0;
 }
 
 
-SYS_INIT(sysview_init, PRE_KERNEL_1, 0);
+SYS_INIT(sysview_init, POST_KERNEL, 0);

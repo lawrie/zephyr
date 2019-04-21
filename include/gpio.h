@@ -77,17 +77,13 @@ struct gpio_callback {
 	/** Actual callback function being called when relevant. */
 	gpio_callback_handler_t handler;
 
-	/** A mask of pins (pin_mask) or a specific pin (pin) the callback
-	 * is interested in, if 0 the callback will never be called.
-	 * The pin_mask or pin can be modified whenever
+	/** A mask of pins the callback is interested in, if 0 the callback
+	 * will never be called. Such pin_mask can be modified whenever
 	 * necessary by the owner, and thus will affect the handler being
 	 * called or not. The selected pins must be configured to trigger
 	 * an interrupt.
 	 */
-	union {
-		u32_t pin_mask;
-		u32_t pin;
-	};
+	u32_t pin_mask;
 };
 
 /**
@@ -127,7 +123,7 @@ struct gpio_driver_api {
 __syscall int gpio_config(struct device *port, int access_op, u32_t pin,
 			  int flags);
 
-static inline int _impl_gpio_config(struct device *port, int access_op,
+static inline int z_impl_gpio_config(struct device *port, int access_op,
 				    u32_t pin, int flags)
 {
 	const struct gpio_driver_api *api =
@@ -139,7 +135,7 @@ static inline int _impl_gpio_config(struct device *port, int access_op,
 __syscall int gpio_write(struct device *port, int access_op, u32_t pin,
 			 u32_t value);
 
-static inline int _impl_gpio_write(struct device *port, int access_op,
+static inline int z_impl_gpio_write(struct device *port, int access_op,
 				   u32_t pin, u32_t value)
 {
 	const struct gpio_driver_api *api =
@@ -151,7 +147,7 @@ static inline int _impl_gpio_write(struct device *port, int access_op,
 __syscall int gpio_read(struct device *port, int access_op, u32_t pin,
 			u32_t *value);
 
-static inline int _impl_gpio_read(struct device *port, int access_op,
+static inline int z_impl_gpio_read(struct device *port, int access_op,
 				  u32_t pin, u32_t *value)
 {
 	const struct gpio_driver_api *api =
@@ -163,11 +159,15 @@ static inline int _impl_gpio_read(struct device *port, int access_op,
 __syscall int gpio_enable_callback(struct device *port, int access_op,
 				   u32_t pin);
 
-static inline int _impl_gpio_enable_callback(struct device *port,
+static inline int z_impl_gpio_enable_callback(struct device *port,
 					     int access_op, u32_t pin)
 {
 	const struct gpio_driver_api *api =
 		(const struct gpio_driver_api *)port->driver_api;
+
+	if (api->enable_callback == NULL) {
+		return -ENOTSUP;
+	}
 
 	return api->enable_callback(port, access_op, pin);
 }
@@ -175,11 +175,15 @@ static inline int _impl_gpio_enable_callback(struct device *port,
 __syscall int gpio_disable_callback(struct device *port, int access_op,
 				    u32_t pin);
 
-static inline int _impl_gpio_disable_callback(struct device *port,
+static inline int z_impl_gpio_disable_callback(struct device *port,
 					      int access_op, u32_t pin)
 {
 	const struct gpio_driver_api *api =
 		(const struct gpio_driver_api *)port->driver_api;
+
+	if (api->disable_callback == NULL) {
+		return -ENOTSUP;
+	}
 
 	return api->disable_callback(port, access_op, pin);
 }
@@ -252,6 +256,10 @@ static inline void gpio_init_callback(struct gpio_callback *callback,
  * @param callback A valid Application's callback structure pointer.
  * @return 0 if successful, negative errno code on failure.
  *
+ * @note Callbacks may be added to the device from within a callback
+ * handler invocation, but whether they are invoked for the current
+ * GPIO event is not specified.
+ *
  * Note: enables to add as many callback as needed on the same port.
  */
 static inline int gpio_add_callback(struct device *port,
@@ -260,7 +268,9 @@ static inline int gpio_add_callback(struct device *port,
 	const struct gpio_driver_api *api =
 		(const struct gpio_driver_api *)port->driver_api;
 
-	__ASSERT(callback, "Callback pointer should not be NULL");
+	if (api->manage_callback == NULL) {
+		return -ENOTSUP;
+	}
 
 	return api->manage_callback(port, callback, true);
 }
@@ -271,6 +281,13 @@ static inline int gpio_add_callback(struct device *port,
  * @param callback A valid application's callback structure pointer.
  * @return 0 if successful, negative errno code on failure.
  *
+ * @warning It is explicitly permitted, within a callback handler, to
+ * remove the registration for the callback that is running, i.e. @p
+ * callback.  Attempts to remove other registrations on the same
+ * device may result in undefined behavior, including failure to
+ * invoke callbacks that remain registered and unintended invocation
+ * of removed callbacks.
+ *
  * Note: enables to remove as many callbacks as added through
  *       gpio_add_callback().
  */
@@ -280,7 +297,9 @@ static inline int gpio_remove_callback(struct device *port,
 	const struct gpio_driver_api *api =
 		(const struct gpio_driver_api *)port->driver_api;
 
-	__ASSERT(callback, "Callback pointer should not be NULL");
+	if (api->manage_callback == NULL) {
+		return -ENOTSUP;
+	}
 
 	return api->manage_callback(port, callback, false);
 }
@@ -319,7 +338,8 @@ static inline int gpio_pin_disable_callback(struct device *port, u32_t pin)
  * @param flags Flags for the port configuration. IN/OUT, interrupt ...
  * @return 0 if successful, negative errno code on failure.
  */
-static inline int gpio_port_configure(struct device *port, int flags)
+__deprecated static inline int gpio_port_configure(struct device *port,
+		int flags)
 {
 	return gpio_config(port, GPIO_ACCESS_BY_PORT, 0, flags);
 }
@@ -337,7 +357,7 @@ static inline int gpio_port_configure(struct device *port, int flags)
  * @param value Value to set on the port.
  * @return 0 if successful, negative errno code on failure.
  */
-static inline int gpio_port_write(struct device *port, u32_t value)
+__deprecated static inline int gpio_port_write(struct device *port, u32_t value)
 {
 	return gpio_write(port, GPIO_ACCESS_BY_PORT, 0, value);
 }
@@ -355,7 +375,7 @@ static inline int gpio_port_write(struct device *port, u32_t value)
  * @param value Integer pointer to receive the data value from the port.
  * @return 0 if successful, negative errno code on failure.
  */
-static inline int gpio_port_read(struct device *port, u32_t *value)
+__deprecated static inline int gpio_port_read(struct device *port, u32_t *value)
 {
 	return gpio_read(port, GPIO_ACCESS_BY_PORT, 0, value);
 }
@@ -370,7 +390,7 @@ static inline int gpio_port_read(struct device *port, u32_t *value)
  *       are configured properly. So as a semantic detail, if no callback
  *       is registered, of course none will be called.
  */
-static inline int gpio_port_enable_callback(struct device *port)
+__deprecated static inline int gpio_port_enable_callback(struct device *port)
 {
 	return gpio_enable_callback(port, GPIO_ACCESS_BY_PORT, 0);
 }
@@ -380,7 +400,7 @@ static inline int gpio_port_enable_callback(struct device *port)
  * @param port Pointer to the device structure for the driver instance.
  * @return 0 if successful, negative errno code on failure.
  */
-static inline int gpio_port_disable_callback(struct device *port)
+__deprecated static inline int gpio_port_disable_callback(struct device *port)
 {
 	return gpio_disable_callback(port, GPIO_ACCESS_BY_PORT, 0);
 }
@@ -403,11 +423,15 @@ __syscall int gpio_get_pending_int(struct device *dev);
 /**
  * @internal
  */
-static inline int _impl_gpio_get_pending_int(struct device *dev)
+static inline int z_impl_gpio_get_pending_int(struct device *dev)
 {
-	struct gpio_driver_api *api;
+	const struct gpio_driver_api *api =
+		(const struct gpio_driver_api *)dev->driver_api;
 
-	api = (struct gpio_driver_api *)dev->driver_api;
+	if (api->get_pending_int == NULL) {
+		return -ENOTSUP;
+	}
+
 	return api->get_pending_int(dev);
 }
 

@@ -41,7 +41,7 @@ loop:
 		if (be) {
 			u8_t bo_n = sys_rand32_get() & ((1 << be) - 1);
 
-			k_busy_wait(bo_n * 20);
+			k_busy_wait(bo_n * 20U);
 		}
 
 		while (1) {
@@ -49,7 +49,7 @@ loop:
 				break;
 			}
 
-			be = min(be + 1, max_be);
+			be = MIN(be + 1, max_be);
 			nb++;
 
 			if (nb > max_bo) {

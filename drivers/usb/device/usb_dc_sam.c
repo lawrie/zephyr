@@ -101,7 +101,7 @@ static void usb_dc_ep_reset(u8_t ep_idx)
 /* Enable endpoint interrupts, depending of the type and direction */
 static void usb_dc_ep_enable_interrupts(u8_t ep_idx)
 {
-	if (ep_idx == 0) {
+	if (ep_idx == 0U) {
 		/* Control endpoint: enable SETUP and OUT */
 		USBHS->USBHS_DEVEPTIER[ep_idx] = USBHS_DEVEPTIER_RXSTPES;
 		USBHS->USBHS_DEVEPTIER[ep_idx] = USBHS_DEVEPTIER_RXOUTES;
@@ -162,7 +162,7 @@ static void usb_dc_ep0_isr(void)
 		dev_data.ep_data[0].cb_in(USB_EP_DIR_IN, USB_DC_EP_DATA_IN);
 
 		if (!(dev_ctrl & USBHS_DEVCTRL_ADDEN) &&
-		    (dev_ctrl & USBHS_DEVCTRL_UADD_Msk) != 0) {
+		    (dev_ctrl & USBHS_DEVCTRL_UADD_Msk) != 0U) {
 			/* Commit the pending address update.  This
 			 * must be done after the ack to the host
 			 * completes else the ack will get dropped.
@@ -294,7 +294,7 @@ int usb_dc_attach(void)
 	}
 #else
 	regval |= USBHS_DEVCTRL_SPDCONF_NORMAL;
-#endif /* CONFIG_USBHS_MAX_SPEED */
+#endif /* DT_USBHS_MAXIMUM_SPEED */
 	USBHS->USBHS_DEVCTRL = regval;
 
 	/* Enable the USB clock */
@@ -390,7 +390,7 @@ int usb_dc_ep_check_cap(const struct usb_dc_ep_cfg_data * const cfg)
 		return -1;
 	}
 
-	if (ep_idx == 0) {
+	if (ep_idx == 0U) {
 		if (cfg->ep_type != USB_DC_EP_CONTROL) {
 			LOG_ERR("pre-selected as control endpoint");
 			return -1;
@@ -475,7 +475,7 @@ int usb_dc_ep_configure(const struct usb_dc_ep_cfg_data *const cfg)
 	 * Map the endpoint size to the buffer size. Only power of 2 buffer
 	 * sizes between 8 and 1024 are possible, get the next power of 2.
 	 */
-	log2ceil_mps = 32 - __builtin_clz((max(cfg->ep_mps, 8) << 1) - 1) - 1;
+	log2ceil_mps = 32 - __builtin_clz((MAX(cfg->ep_mps, 8) << 1) - 1) - 1;
 	regval |= USBHS_DEVEPTCFG_EPSIZE(log2ceil_mps - 3);
 	dev_data.ep_data[ep_idx].mps = cfg->ep_mps;
 
@@ -695,13 +695,13 @@ int usb_dc_ep_write(u8_t ep, const u8_t *data, u32_t data_len, u32_t *ret_bytes)
 	}
 
 	/* Write the data to the FIFO */
-	packet_len = min(data_len, dev_data.ep_data[ep_idx].mps);
+	packet_len = MIN(data_len, dev_data.ep_data[ep_idx].mps);
 	for (int i = 0; i < packet_len; i++) {
 		usb_dc_ep_fifo_put(ep_idx, data[i]);
 	}
 	__DSB();
 
-	if (ep_idx == 0) {
+	if (ep_idx == 0U) {
 		/*
 		 * Control endpoint: clear the interrupt flag to send the data,
 		 * and re-enable the interrupts to trigger an interrupt at the
@@ -851,7 +851,7 @@ int usb_dc_ep_read_continue(u8_t ep)
 		return -EINVAL;
 	}
 
-	if (ep_idx == 0) {
+	if (ep_idx == 0U) {
 		/*
 		 * Control endpoint: clear the interrupt flag to send the data.
 		 * It is easier to clear both SETUP and OUT flag than checking

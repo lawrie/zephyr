@@ -88,10 +88,8 @@ static int lldp_send(struct ethernet_lldp *lldp)
 		{ 0x01, 0x80, 0xc2, 0x00, 0x00, 0x0e }
 	};
 	int ret = 0;
-	struct net_eth_hdr *hdr;
 	struct net_pkt *pkt;
-	struct net_buf *frag;
-	u16_t pos;
+	size_t len;
 
 	if (!lldp->lldpdu) {
 		/* The ethernet driver has not set the lldpdu pointer */
@@ -100,39 +98,49 @@ static int lldp_send(struct ethernet_lldp *lldp)
 		goto out;
 	}
 
-	pkt = net_pkt_get_reserve_tx(BUF_ALLOC_TIMEOUT);
+	if (lldp->optional_du && lldp->optional_len) {
+		len = sizeof(struct net_lldpdu) + lldp->optional_len;
+	} else {
+		len = sizeof(struct net_lldpdu);
+	}
+
+	pkt = net_pkt_alloc_with_buffer(lldp->iface, len, AF_UNSPEC, 0,
+					BUF_ALLOC_TIMEOUT);
 	if (!pkt) {
 		ret = -ENOMEM;
 		goto out;
 	}
 
-	frag = net_pkt_get_frag(pkt, BUF_ALLOC_TIMEOUT);
-	if (!frag) {
+	if (net_pkt_write(pkt, (u8_t *)lldp->lldpdu,
+			  sizeof(struct net_lldpdu))) {
 		net_pkt_unref(pkt);
 		ret = -ENOMEM;
 		goto out;
 	}
 
-	net_pkt_frag_add(pkt, frag);
+	if (lldp->optional_du && lldp->optional_len) {
+		if (!net_pkt_write(pkt, (u8_t *)lldp->optional_du,
+				   lldp->optional_len)) {
+			net_pkt_unref(pkt);
+			ret = -ENOMEM;
+			goto out;
+		}
+	}
 
-	net_buf_add(frag, sizeof(struct net_lldpdu));
+	if (IS_ENABLED(CONFIG_NET_LLDP_END_LLDPDU_TLV_ENABLED)) {
+		u16_t tlv_end = htons(NET_LLDP_END_LLDPDU_VALUE);
 
-	if (!net_pkt_write(pkt, frag, 0, &pos, sizeof(struct net_lldpdu),
-			   (u8_t *)lldp->lldpdu, BUF_ALLOC_TIMEOUT)) {
-		net_pkt_unref(pkt);
-		ret = -ENOMEM;
-		goto out;
+		if (!net_pkt_write(pkt, (u8_t *)&tlv_end, sizeof(tlv_end))) {
+			net_pkt_unref(pkt);
+			ret = -ENOMEM;
+			goto out;
+		}
 	}
 
 	net_pkt_lladdr_src(pkt)->addr = net_if_get_link_addr(lldp->iface)->addr;
 	net_pkt_lladdr_src(pkt)->len = sizeof(struct net_eth_addr);
 	net_pkt_lladdr_dst(pkt)->addr = (u8_t *)lldp_multicast_eth_addr.addr;
 	net_pkt_lladdr_dst(pkt)->len = sizeof(struct net_eth_addr);
-
-	hdr = NET_ETH_HDR(pkt);
-	hdr->type = htons(NET_ETH_PTYPE_LLDP);
-
-	net_pkt_set_iface(pkt, lldp->iface);
 
 	if (net_if_send_data(lldp->iface, pkt) == NET_DROP) {
 		net_pkt_unref(pkt);
@@ -323,6 +331,53 @@ int net_lldp_config(struct net_if *iface, const struct net_lldpdu *lldpdu)
 	ctx->lldp[i].lldpdu = lldpdu;
 
 	return 0;
+}
+
+int net_lldp_config_optional(struct net_if *iface, const u8_t *tlv, size_t len)
+{
+	struct ethernet_context *ctx = net_if_l2_data(iface);
+	int i;
+
+	i = lldp_find(ctx, iface);
+	if (i < 0) {
+		return i;
+	}
+
+	ctx->lldp[i].optional_du = tlv;
+	ctx->lldp[i].optional_len = len;
+
+	return 0;
+}
+
+static const struct net_lldpdu lldpdu = {
+	.chassis_id = {
+		.type_length = htons((LLDP_TLV_CHASSIS_ID << 9) |
+			NET_LLDP_CHASSIS_ID_TLV_LEN),
+		.subtype = CONFIG_NET_LLDP_CHASSIS_ID_SUBTYPE,
+		.value = NET_LLDP_CHASSIS_ID_VALUE
+	},
+	.port_id = {
+		.type_length = htons((LLDP_TLV_PORT_ID << 9) |
+			NET_LLDP_PORT_ID_TLV_LEN),
+		.subtype = CONFIG_NET_LLDP_PORT_ID_SUBTYPE,
+		.value = NET_LLDP_PORT_ID_VALUE
+	},
+	.ttl = {
+		.type_length = htons((LLDP_TLV_TTL << 9) |
+			NET_LLDP_TTL_TLV_LEN),
+		.ttl = htons(NET_LLDP_TTL)
+	},
+};
+
+int net_lldp_set_lldpdu(struct net_if *iface)
+{
+	return net_lldp_config(iface, &lldpdu);
+}
+
+void net_lldp_unset_lldpdu(struct net_if *iface)
+{
+	net_lldp_config(iface, NULL);
+	net_lldp_config_optional(iface, NULL, 0);
 }
 
 void net_lldp_init(void)

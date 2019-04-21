@@ -20,62 +20,36 @@ LOG_MODULE_REGISTER(wifi_eswifi_offload);
 
 #include "eswifi.h"
 
-static int __select_socket(struct eswifi_dev *eswifi, u8_t idx)
+static inline int __select_socket(struct eswifi_dev *eswifi, u8_t idx)
 {
-	int err;
-
 	snprintf(eswifi->buf, sizeof(eswifi->buf), "P0=%d\r", idx);
-
-	err = eswifi_request(eswifi, eswifi->buf, strlen(eswifi->buf),
-			     eswifi->buf, sizeof(eswifi->buf));
-	if (err || !eswifi_is_buf_at_ok(eswifi->buf)) {
-		return -EIO;
-	}
-
-	return 0;
+	return eswifi_at_cmd(eswifi, eswifi->buf);
 }
 
-static int __read_data(struct eswifi_dev *eswifi, size_t len)
+static int __read_data(struct eswifi_dev *eswifi, size_t len, char **data)
 {
 	char cmd[] = "R0\r";
 	char size[] = "R1=9999\r";
 	char timeout[] = "R2=30000\r";
-	int err, i, read = 0;
+	int ret;
 
 	/* Set max read size */
-	snprintf(size, sizeof(eswifi->buf), "R1=%u\r", len);
-	err = eswifi_request(eswifi, size, strlen(size),
-			     eswifi->buf, sizeof(eswifi->buf));
-	if (err || !eswifi_is_buf_at_ok(eswifi->buf)) {
+	snprintf(size, sizeof(size), "R1=%u\r", len);
+	ret = eswifi_at_cmd(eswifi, size);
+	if (ret < 0) {
 		LOG_ERR("Unable to set read size");
 		return -EIO;
 	}
 
 	/* Set timeout */
-	snprintf(timeout, sizeof(eswifi->buf), "R2=%u\r", 30); /* 30 ms */
-	err = eswifi_request(eswifi, timeout, strlen(timeout),
-			     eswifi->buf, sizeof(eswifi->buf));
-	if (err || !eswifi_is_buf_at_ok(eswifi->buf)) {
+	snprintf(timeout, sizeof(timeout), "R2=%u\r", 30); /* 30 ms */
+	ret = eswifi_at_cmd(eswifi, timeout);
+	if (ret < 0) {
 		LOG_ERR("Unable to set timeout");
 		return -EIO;
 	}
 
-	err = eswifi_request(eswifi, cmd, strlen(cmd), eswifi->buf,
-			     sizeof(eswifi->buf));
-	if (err) {
-		return -EIO;
-	}
-
-	/* find payload size */
-	/* '\r\n''paylod'\r\n''OK''\r\n''> ' */
-	for (i = 0; i < sizeof(eswifi->buf); i++) {
-		if (!strncmp(&eswifi->buf[i], AT_OK_STR, AT_OK_STR_LEN)) {
-			read = i - AT_RSP_DELIMITER_LEN;
-			break;
-		}
-	}
-
-	return read;
+	return eswifi_at_cmd_rsp(eswifi, cmd, data);
 }
 
 static inline
@@ -90,6 +64,7 @@ static void eswifi_off_read_work(struct k_work *work)
 	struct eswifi_dev *eswifi;
 	struct net_pkt *pkt;
 	int err, len;
+	char *data;
 
 	LOG_DBG("");
 
@@ -104,25 +79,26 @@ static void eswifi_off_read_work(struct k_work *work)
 
 	__select_socket(eswifi, socket->index);
 
-	len = __read_data(eswifi, 1460); /* 1460 is max size */
+	len = __read_data(eswifi, 1460, &data); /* 1460 is max size */
 	if (len <= 0 || !socket->recv_cb) {
 		goto done;
 	}
 
-	LOG_DBG("payload sz = %d", len);
+	LOG_ERR("payload sz = %d", len);
 
-	pkt = net_pkt_get_reserve_rx(K_NO_WAIT);
+	pkt = net_pkt_rx_alloc_with_buffer(eswifi->iface, len,
+					   AF_UNSPEC, 0, K_NO_WAIT);
 	if (!pkt) {
 		LOG_ERR("Cannot allocate rx packet");
 		goto done;
 	}
 
-	if (!net_pkt_append_all(pkt, len, eswifi->buf + AT_RSP_DELIMITER_LEN,
-				K_NO_WAIT)) {
+	if (!net_pkt_write(pkt, data, len)) {
 		LOG_WRN("Incomplete buffer copy");
 	}
 
-	socket->recv_cb(socket->context, pkt, 0, socket->user_data);
+	socket->recv_cb(socket->context, pkt,
+			NULL, NULL, 0, socket->user_data);
 	k_sem_give(&socket->read_sem);
 	k_yield();
 
@@ -159,9 +135,8 @@ static int eswifi_off_bind(struct net_context *context,
 	/* Set Local Port */
 	snprintf(eswifi->buf, sizeof(eswifi->buf), "P2=%d\r",
 		 (u16_t)sys_be16_to_cpu(net_sin(addr)->sin_port));
-	err = eswifi_request(eswifi, eswifi->buf, strlen(eswifi->buf),
-			     eswifi->buf, sizeof(eswifi->buf));
-	if (err || !eswifi_is_buf_at_ok(eswifi->buf)) {
+	err = eswifi_at_cmd(eswifi, eswifi->buf);
+	if (err < 0) {
 		LOG_ERR("Unable to set local port");
 		eswifi_unlock(eswifi);
 		return -EIO;
@@ -176,7 +151,7 @@ static int eswifi_off_listen(struct net_context *context, int backlog)
 {
 	struct eswifi_off_socket *socket = context->offload_context;
 	struct eswifi_dev *eswifi = eswifi_by_iface_idx(context->iface);
-	char *cmd = "P5=1\r";
+	char cmd[] = "P5=1\r";
 	int err;
 
 	/* TODO */
@@ -187,16 +162,14 @@ static int eswifi_off_listen(struct net_context *context, int backlog)
 	__select_socket(eswifi, socket->index);
 
 	/* Start TCP Server */
-	err = eswifi_request(eswifi, cmd, strlen(cmd), eswifi->buf,
-			     sizeof(eswifi->buf));
-	if (err || !eswifi_is_buf_at_ok(eswifi->buf)) {
+	err = eswifi_at_cmd(eswifi, cmd);
+	if (err < 0) {
 		LOG_ERR("Unable to start TCP server");
-		eswifi_unlock(eswifi);
-		return -EIO;
 	}
+
 	eswifi_unlock(eswifi);
 
-	return -ENOTSUP;
+	return err;
 }
 
 static int __eswifi_off_connect(struct eswifi_dev *eswifi,
@@ -215,9 +188,8 @@ static int __eswifi_off_connect(struct eswifi_dev *eswifi,
 		 sin_addr->s4_addr[0], sin_addr->s4_addr[1],
 		 sin_addr->s4_addr[2], sin_addr->s4_addr[3]);
 
-	err = eswifi_request(eswifi, eswifi->buf, strlen(eswifi->buf),
-			     eswifi->buf, sizeof(eswifi->buf));
-	if (err || !eswifi_is_buf_at_ok(eswifi->buf)) {
+	err = eswifi_at_cmd(eswifi, eswifi->buf);
+	if (err < 0) {
 		LOG_ERR("Unable to set remote ip");
 		return -EIO;
 	}
@@ -225,18 +197,16 @@ static int __eswifi_off_connect(struct eswifi_dev *eswifi,
 	/* Set Remote Port */
 	snprintf(eswifi->buf, sizeof(eswifi->buf), "P4=%d\r",
 		(u16_t)sys_be16_to_cpu(net_sin(addr)->sin_port));
-	err = eswifi_request(eswifi, eswifi->buf, strlen(eswifi->buf),
-			     eswifi->buf, sizeof(eswifi->buf));
-	if (err || !eswifi_is_buf_at_ok(eswifi->buf)) {
+		err = eswifi_at_cmd(eswifi, eswifi->buf);
+		if (err < 0) {
 		LOG_ERR("Unable to set remote port");
 		return -EIO;
 	}
 
 	/* Start TCP client */
 	snprintf(eswifi->buf, sizeof(eswifi->buf), "P6=1\r");
-	err = eswifi_request(eswifi, eswifi->buf, strlen(eswifi->buf),
-			     eswifi->buf, sizeof(eswifi->buf));
-	if (err || !eswifi_is_buf_at_ok(eswifi->buf)) {
+	err = eswifi_at_cmd(eswifi, eswifi->buf);
+	if (err < 0) {
 		LOG_ERR("Unable to connect");
 		return -EIO;
 	}
@@ -341,7 +311,6 @@ static int __eswifi_off_send_pkt(struct eswifi_dev *eswifi,
 				 struct eswifi_off_socket *socket)
 {
 	struct net_pkt *pkt = socket->tx_pkt;
-	struct net_buf *frag;
 	unsigned int bytes;
 	int err, offset;
 
@@ -360,14 +329,15 @@ static int __eswifi_off_send_pkt(struct eswifi_dev *eswifi,
 	offset = strlen(eswifi->buf);
 
 	/* copy payload */
-	for (frag = pkt->frags; frag; frag = frag->frags) {
-		memcpy(&eswifi->buf[offset], frag->data, frag->len);
-		offset += frag->len;
+	if (net_pkt_read(pkt, &eswifi->buf[offset], bytes)) {
+		return -ENOBUFS;
 	}
+
+	offset += bytes;
 
 	err = eswifi_request(eswifi, eswifi->buf, offset + 1,
 			     eswifi->buf, sizeof(eswifi->buf));
-	if (err || !eswifi_is_buf_at_ok(eswifi->buf)) {
+	if (err < 0) {
 		LOG_ERR("Unable to send data");
 		return -EIO;
 	}
@@ -383,7 +353,7 @@ static void eswifi_off_send_work(struct k_work *work)
 	net_context_send_cb_t cb;
 	struct net_context *context;
 	struct eswifi_dev *eswifi;
-	void *user_data, *token;
+	void *user_data;
 	int err;
 
 	socket = CONTAINER_OF(work, struct eswifi_off_socket, connect_work);
@@ -392,7 +362,6 @@ static void eswifi_off_send_work(struct k_work *work)
 	eswifi_lock(eswifi);
 
 	user_data = socket->user_data;
-	token = socket->tx_token;
 	cb = socket->send_cb;
 	context = socket->context;
 
@@ -402,14 +371,13 @@ static void eswifi_off_send_work(struct k_work *work)
 	eswifi_unlock(eswifi);
 
 	if (cb) {
-		cb(context, err, token, user_data);
+		cb(context, err, user_data);
 	}
 }
 
 static int eswifi_off_send(struct net_pkt *pkt,
 			   net_context_send_cb_t cb,
 			   s32_t timeout,
-			   void *token,
 			   void *user_data)
 {
 	struct eswifi_off_socket *socket = pkt->context->offload_context;
@@ -432,7 +400,6 @@ static int eswifi_off_send(struct net_pkt *pkt,
 	socket->tx_pkt = pkt;
 
 	if (timeout == K_NO_WAIT) {
-		socket->tx_token = token;
 		socket->user_data = user_data;
 		socket->send_cb = cb;
 
@@ -449,7 +416,7 @@ static int eswifi_off_send(struct net_pkt *pkt,
 	eswifi_unlock(eswifi);
 
 	if (cb) {
-		cb(socket->context, err, token, user_data);
+		cb(socket->context, err, user_data);
 	}
 
 	return err;
@@ -460,7 +427,6 @@ static int eswifi_off_sendto(struct net_pkt *pkt,
 			     socklen_t addrlen,
 			     net_context_send_cb_t cb,
 			     s32_t timeout,
-			     void *token,
 			     void *user_data)
 {
 	/* TODO */
@@ -523,11 +489,10 @@ static int eswifi_off_put(struct net_context *context)
 
 	/* Stop TCP client */
 	snprintf(eswifi->buf, sizeof(eswifi->buf), "P6=0\r");
-	err = eswifi_request(eswifi, eswifi->buf, strlen(eswifi->buf),
-			     eswifi->buf, sizeof(eswifi->buf));
-	if (err || !eswifi_is_buf_at_ok(eswifi->buf)) {
+	err = eswifi_at_cmd(eswifi, eswifi->buf);
+	if (err < 0) {
 		err = -EIO;
-		LOG_ERR("Unable to connect");
+		LOG_ERR("Unable to disconnect");
 	}
 
 	eswifi_unlock(eswifi);
@@ -582,7 +547,7 @@ static int eswifi_off_get(sa_family_t family,
 	k_sem_init(&socket->read_sem, 1, 1);
 
 	err = __select_socket(eswifi, socket->index);
-	if (err) {
+	if (err < 0) {
 		LOG_ERR("Unable to select socket %u", socket->index);
 		eswifi_unlock(eswifi);
 		return -EIO;
@@ -591,9 +556,8 @@ static int eswifi_off_get(sa_family_t family,
 	/* Set Transport Protocol */
 	snprintf(eswifi->buf, sizeof(eswifi->buf), "P1=%d\r",
 		ESWIFI_TRANSPORT_TCP);
-	err = eswifi_request(eswifi, eswifi->buf, strlen(eswifi->buf),
-			     eswifi->buf, sizeof(eswifi->buf));
-	if (err || !eswifi_is_buf_at_ok(eswifi->buf)) {
+	err = eswifi_at_cmd(eswifi, eswifi->buf);
+	if (err < 0) {
 		LOG_ERR("Unable to set transport protocol");
 		eswifi_unlock(eswifi);
 		return -EIO;
@@ -628,12 +592,7 @@ static int eswifi_off_enable_dhcp(struct eswifi_dev *eswifi)
 
 	eswifi_lock(eswifi);
 
-	err = eswifi_request(eswifi, cmd, strlen(cmd),
-			     eswifi->buf, sizeof(eswifi->buf));
-	if (err || !eswifi_is_buf_at_ok(eswifi->buf)) {
-		eswifi_unlock(eswifi);
-		return -EIO;
-	}
+	err = eswifi_at_cmd(eswifi, cmd);
 
 	eswifi_unlock(eswifi);
 
@@ -649,16 +608,11 @@ static int eswifi_off_disable_bypass(struct eswifi_dev *eswifi)
 
 	eswifi_lock(eswifi);
 
-	err = eswifi_request(eswifi, cmd, strlen(cmd), eswifi->buf,
-			     sizeof(eswifi->buf));
-	if (err || !eswifi_is_buf_at_ok(eswifi->buf)) {
-		eswifi_unlock(eswifi);
-		return -EIO;
-	}
+	err = eswifi_at_cmd(eswifi, cmd);
 
 	eswifi_unlock(eswifi);
 
-	return 0;
+	return err;
 }
 
 int eswifi_offload_init(struct eswifi_dev *eswifi)
@@ -667,13 +621,13 @@ int eswifi_offload_init(struct eswifi_dev *eswifi)
 	int err;
 
 	err = eswifi_off_enable_dhcp(eswifi);
-	if (err) {
+	if (err < 0) {
 		LOG_ERR("Unable to configure dhcp");
 		return err;
 	}
 
 	err = eswifi_off_disable_bypass(eswifi);
-	if (err) {
+	if (err < 0) {
 		LOG_ERR("Unable to disable bypass mode");
 		return err;
 	}

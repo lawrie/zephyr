@@ -10,6 +10,9 @@
 #include <shell/shell.h>
 #include <ring_buffer.h>
 #include <atomic.h>
+#ifdef CONFIG_MCUMGR_SMP_SHELL
+#include "mgmt/smp_shell.h"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,7 +26,10 @@ struct shell_uart_ctrl_blk {
 	shell_transport_handler_t handler;
 	void *context;
 	atomic_t tx_busy;
-	bool blocking;
+	bool blocking_tx;
+#ifdef CONFIG_MCUMGR_SMP_SHELL
+	struct smp_shell_data smp;
+#endif /* CONFIG_MCUMGR_SMP_SHELL */
 };
 
 #ifdef CONFIG_SHELL_BACKEND_SERIAL_INTERRUPT_DRIVEN

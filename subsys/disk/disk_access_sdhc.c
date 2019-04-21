@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-#define LOG_LEVEL CONFIG_DISC_LOG_LEVEL
 #include <logging/log.h>
-LOG_MODULE_REGISTER(sdhc);
+
+LOG_MODULE_REGISTER(sdhc, CONFIG_DISK_LOG_LEVEL);
 
 #include <disk_access.h>
 #include <gpio.h>
@@ -194,7 +194,7 @@ static int sdhc_map_flags(const struct sdhc_flag_map *map, int flags)
 		return flags;
 	}
 
-	for (; map->mask != 0; map++) {
+	for (; map->mask != 0U; map++) {
 		if ((flags & map->mask) == map->mask) {
 			return -map->err;
 		}
@@ -253,7 +253,7 @@ static bool sdhc_retry_ok(struct sdhc_retry *retry)
 
 	if (retry->tries < SDHC_MIN_TRIES) {
 		retry->tries++;
-		if (retry->sleep != 0) {
+		if (retry->sleep != 0U) {
 			k_sleep(retry->sleep);
 		}
 
@@ -567,7 +567,7 @@ static int sdhc_rx_block(struct sdhc_data *data, u8_t *buf, int len)
 
 	/* Read the data in batches */
 	for (i = 0; i < len; i += sizeof(sdhc_ones)) {
-		int remain = min(sizeof(sdhc_ones), len - i);
+		int remain = MIN(sizeof(sdhc_ones), len - i);
 
 		struct spi_buf tx_bufs[] = {
 			{
@@ -746,7 +746,7 @@ static int sdhc_detect(struct sdhc_data *data)
 		return err;
 	}
 
-	if ((ocr & SDHC_CCS) == 0) {
+	if ((ocr & SDHC_CCS) == 0U) {
 		/* A 'SDSC' card */
 		return -ENOTSUP;
 	}
@@ -824,7 +824,7 @@ static int sdhc_read(struct sdhc_data *data, u8_t *buf, u32_t sector,
 	}
 
 	/* Read the sectors */
-	for (; count != 0; count--) {
+	for (; count != 0U; count--) {
 		err = sdhc_rx_block(data, buf, SDHC_SECTOR_SIZE);
 		if (err != 0) {
 			goto error;
@@ -858,7 +858,7 @@ static int sdhc_write(struct sdhc_data *data, const u8_t *buf, u32_t sector,
 	sdhc_set_cs(data, 0);
 
 	/* Write the blocks one-by-one */
-	for (; count != 0; count--) {
+	for (; count != 0U; count--) {
 		err = sdhc_cmd_r1(data, SDHC_WRITE_BLOCK, sector);
 		if (err < 0) {
 			goto error;
@@ -897,15 +897,15 @@ static int sdhc_init(struct device *dev)
 {
 	struct sdhc_data *data = dev->driver_data;
 
-	data->spi = device_get_binding(DT_DISK_SDHC0_BUS_NAME);
+	data->spi = device_get_binding(DT_ZEPHYR_MMC_SPI_SLOT_0_BUS_NAME);
 
 	data->cfg.frequency = SDHC_INITIAL_SPEED;
 	data->cfg.operation = SPI_WORD_SET(8) | SPI_HOLD_ON_CS;
-	data->cfg.slave = DT_DISK_SDHC0_BUS_ADDRESS;
-	data->cs = device_get_binding(DT_DISK_SDHC0_CS_GPIOS_CONTROLLER);
+	data->cfg.slave = DT_ZEPHYR_MMC_SPI_SLOT_0_BASE_ADDRESS;
+	data->cs = device_get_binding(DT_ZEPHYR_MMC_SPI_SLOT_0_CS_GPIO_CONTROLLER);
 	__ASSERT_NO_MSG(data->cs != NULL);
 
-	data->pin = DT_DISK_SDHC0_CS_GPIOS_PIN;
+	data->pin = DT_ZEPHYR_MMC_SPI_SLOT_0_CS_GPIO_PIN;
 
 	disk_sdhc_init(dev);
 

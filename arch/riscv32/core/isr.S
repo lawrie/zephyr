@@ -22,7 +22,7 @@ GTEXT(__soc_restore_context)
 
 GTEXT(_k_neg_eagain)
 GTEXT(_is_next_thread_current)
-GTEXT(_get_next_ready_thread)
+GTEXT(z_get_next_ready_thread)
 
 #ifdef CONFIG_TRACING
 GTEXT(z_sys_trace_thread_switched_in)
@@ -55,7 +55,7 @@ GTEXT(__irq_wrapper)
  *     - __soc_handle_irq: handle SoC-specific details for a pending IRQ
  *       (e.g. clear a pending bit in a SoC-specific register)
  *
- * If CONFIG_RISCV_SOC_CONTEXT=y, calls to SoC-level context save/restore
+ * If CONFIG_RISCV_SOC_CONTEXT_SAVE=y, calls to SoC-level context save/restore
  * routines are also made here. For details, see the Kconfig help text.
  */
 
@@ -218,12 +218,12 @@ on_irq_stack:
 	beqz t1, call_irq
 
 	/*
-	 * Call _irq_do_offload to handle IRQ offloading.
+	 * Call z_irq_do_offload to handle IRQ offloading.
 	 * Set return address to on_thread_stack in order to jump there
-	 * upon returning from _irq_do_offload
+	 * upon returning from z_irq_do_offload
 	 */
 	la ra, on_thread_stack
-	tail _irq_do_offload
+	tail z_irq_do_offload
 
 call_irq:
 #ifdef CONFIG_TRACING
@@ -281,7 +281,7 @@ on_thread_stack:
 	addi sp, t0, 0
 
 #ifdef CONFIG_STACK_SENTINEL
-	call _check_stack_sentinel
+	call z_check_stack_sentinel
 	la t1, _kernel
 #endif
 
@@ -332,7 +332,7 @@ reschedule:
 
 	/*
 	 * Save stack pointer of current thread and set the default return value
-	 * of _Swap to _k_neg_eagain for the thread.
+	 * of z_swap to _k_neg_eagain for the thread.
 	 */
 	sw sp, _thread_offset_to_sp(t1)
 	la t2, _k_neg_eagain

@@ -14,7 +14,7 @@
 #include <logging/log.h>
 LOG_MODULE_REGISTER(main);
 
-#define LED_DEV_NAME CONFIG_LP5562_DEV_NAME
+#define LED_DEV_NAME DT_TI_LP5562_0_LABEL
 #define NUM_LEDS 4
 #define BLINK_DELAY_ON 500
 #define BLINK_DELAY_OFF 500
@@ -53,7 +53,7 @@ static u8_t colors[COLORS_TO_SHOW][VALUES_PER_COLOR] = {
  */
 static inline u8_t scale_color_to_percent(u8_t hex)
 {
-	return (hex * 100) / 0xFF;
+	return (hex * 100U) / 0xFF;
 }
 
 /*

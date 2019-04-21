@@ -1,11 +1,25 @@
+# SPDX-License-Identifier: Apache-2.0
+
 cmake_minimum_required(VERSION 3.13.1)
 project(Zephyr-Kernel-Doc LANGUAGES)
+
+# Find west to (optionally) process modules for Kconfig
+find_program(
+  WEST
+  west
+  )
+if(${WEST} STREQUAL WEST-NOTFOUND)
+  unset(WEST)
+endif()
 
 set(ZEPHYR_BASE $ENV{ZEPHYR_BASE})
 
 message(STATUS "Zephyr base: ${ZEPHYR_BASE}")
 
 include(${ZEPHYR_BASE}/cmake/version.cmake)
+
+# Process modules
+include(${ZEPHYR_BASE}/cmake/zephyr_module.cmake)
 
 find_package(PythonInterp 3.4)
 set(DOXYGEN_SKIP_DOT True)
@@ -14,7 +28,7 @@ find_package(LATEX)
 
 find_program(
   SPHINXBUILD
-  sphinx-build
+  NAMES sphinx-build-3 sphinx-build
   )
 if(${SPHINXBUILD} STREQUAL SPHINXBUILD-NOTFOUND)
   message(FATAL_ERROR "The 'sphinx-build' command was not found. Make sure you have Sphinx installed.")
@@ -65,6 +79,7 @@ set(I18NSPHINXOPTS  ${SPHINXOPTS})
 
 set(DOXYFILE_IN ${CMAKE_CURRENT_LIST_DIR}/zephyr.doxyfile.in)
 set(DOXYFILE_OUT ${CMAKE_CURRENT_BINARY_DIR}/zephyr.doxyfile)
+set(DOXY_OUT ${CMAKE_CURRENT_BINARY_DIR}/doxygen)
 set(RST_OUT ${CMAKE_CURRENT_BINARY_DIR}/rst)
 set(DOC_LOG ${CMAKE_CURRENT_BINARY_DIR}/doc.log)
 set(DOXY_LOG ${CMAKE_CURRENT_BINARY_DIR}/doxy.log)
@@ -74,8 +89,8 @@ set(CONTENT_OUTPUTS ${CMAKE_CURRENT_BINARY_DIR}/extracted-content.txt)
 
 configure_file(${DOXYFILE_IN} ${DOXYFILE_OUT} @ONLY)
 
-# This command is used to copy all documentation source files into the build
-# directory,
+# This command is used to copy all documentation source files from the
+# ZEPHYR_BASE/ environment variable into the build directory,
 #
 # We need to make copies because Sphinx requires a single
 # documentation root directory, but Zephyr's documentation is
@@ -107,12 +122,28 @@ add_custom_target(
   # Copy all files in doc/ to the rst folder
   COMMAND ${EXTRACT_CONTENT_COMMAND}
   WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+  COMMENT "Copying files to ${RST_OUT}"
 )
 
-set(ARGS ${DOXYFILE_OUT})
+# For incremental builds not to miss any source change this MUST be kept
+# a superset of INPUT= and FILE_PATTERNS= in zephyr.doxyfile.in
+file(GLOB_RECURSE  DOXY_SOURCES
+  ${ZEPHYR_BASE}/include/*.[c,h,S]
+  ${ZEPHYR_BASE}/lib/libc/*.[c,h,S]
+  ${ZEPHYR_BASE}/tests/*.[h,c,S]
+  )
+# For debug. Also find generated list in doc/_build/(build.ninja|CMakeFiles/)
+# message("DOXY_SOURCES= " ${DOXY_SOURCES})
 
-add_custom_target(
-  doxy
+set(ARGS ${DOXYFILE_OUT})
+set(DOXY_RUN_TSTAMP ${CMAKE_CURRENT_BINARY_DIR}/last_doxy_run_tstamp)
+
+
+# Create timestamp first so we re-run if source files are edited while
+# doxygen is running
+add_custom_command(
+  OUTPUT ${DOXY_RUN_TSTAMP}
+  COMMAND cmake -E touch ${DOXY_RUN_TSTAMP}
   COMMAND ${CMAKE_COMMAND}
     -DCOMMAND=${DOXYGEN_EXECUTABLE}
     -DARGS="${ARGS}"
@@ -120,6 +151,24 @@ add_custom_target(
     -DERROR_FILE=${DOXY_LOG}
     -DWORKING_DIRECTORY=${CMAKE_CURRENT_LIST_DIR}
     -P ${ZEPHYR_BASE}/cmake/util/execute_process.cmake
+  DEPENDS ${DOXY_SOURCES}
+  COMMENT "Running ${DOXYGEN_EXECUTABLE}"
+)
+
+# Doxygen doesn't support incremental builds.
+# It could be ok because it's pretty fast.
+# But it's not because it has a cascade effect on sphinx:
+# https://sourceforge.net/p/doxygen/mailman/message/36580807/
+# For now this optimization speeds-up non-doxygen documentation work
+# only (by one order of magnitude).
+add_custom_target(
+  doxy_real_modified_times
+  COMMAND ${CMAKE_COMMAND} -E env
+    ${PYTHON_EXECUTABLE} scripts/restore_modification_times.py
+    --loglevel  WARN  ${DOXY_OUT}/xml
+  WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+  DEPENDS ${DOXY_RUN_TSTAMP}
+  COMMENT "Fixing modification times of ${DOXY_OUT}/xml/ output"
 )
 
 add_custom_target(
@@ -142,15 +191,21 @@ add_custom_target(
   KERNELVERSION=${KERNELVERSION}
   BOARD_DIR=boards/*/*/
   ARCH=*
+  ARCH_DIR=arch/
   SOC_DIR=soc/
   SRCARCH=x86
+  CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}
+  KCONFIG_WARN_UNDEF=y
+  KCONFIG_TURBO_MODE=${KCONFIG_TURBO_MODE}
+  KCONFIG_DOC_MODE=1
   ${PYTHON_EXECUTABLE} scripts/genrest.py Kconfig ${RST_OUT}/doc/reference/kconfig/
   WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+  COMMENT "Running genrest.py Kconfig ${RST_OUT}/doc/reference/kconfig/"
 )
 
 set(KI_SCRIPT ${ZEPHYR_BASE}/scripts/filter-known-issues.py)
 set(FIX_TEX_SCRIPT ${ZEPHYR_BASE}/doc/scripts/fix_tex.py)
-set(CONFIG_DIR ${ZEPHYR_BASE}/.known-issues/doc)
+set(CONF_DIR ${ZEPHYR_BASE}/.known-issues/doc)
 
 #
 # HTML section
@@ -173,14 +228,20 @@ add_custom_target(
   USES_TERMINAL
 )
 
+# "breathe", the sphinx plugin that parses XML output from doxygen, has
+# an "everything on everything" dependency issue reported at:
+# https://github.com/michaeljones/breathe/issues/420 In other words
+# changing 1 source file costs the same build time than changing all
+# source files. breathe is fortunately smart enough not to run at all
+# when *nothing* has changed.
 add_custom_target(
   html
   COMMAND ${SPHINX_BUILD_HTML_COMMAND}
   # Merge the Doxygen and Sphinx logs into a single file
   COMMAND ${CMAKE_COMMAND} -P ${ZEPHYR_BASE}/cmake/util/fmerge.cmake ${DOC_LOG} ${DOXY_LOG} ${SPHINX_LOG}
-  COMMAND ${PYTHON_EXECUTABLE} ${KI_SCRIPT} --config-dir ${CONFIG_DIR} --errors ${DOC_WARN} --warnings ${DOC_WARN} ${DOC_LOG}
+  COMMAND ${PYTHON_EXECUTABLE} ${KI_SCRIPT} --config-dir ${CONF_DIR} --errors ${DOC_WARN} --warnings ${DOC_WARN} ${DOC_LOG}
   WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-  COMMENT "Generating HTML documentation"
+  COMMENT "Generating HTML documentation with ${SPHINXBUILD} ${SPHINXOPTS}"
   ${SPHINX_USES_TERMINAL}
 )
 
@@ -207,7 +268,7 @@ add_custom_command(
   COMMAND ${SPHINX_BUILD_LATEX_COMMAND}
   # Merge the Doxygen and Sphinx logs into a single file
   COMMAND ${CMAKE_COMMAND} -P ${ZEPHYR_BASE}/cmake/util/fmerge.cmake ${DOC_LOG} ${DOXY_LOG} ${SPHINX_LOG}
-  COMMAND ${PYTHON_EXECUTABLE} ${KI_SCRIPT} --config-dir ${CONFIG_DIR} --errors ${DOC_WARN} --warnings ${DOC_WARN} ${DOC_LOG}
+  COMMAND ${PYTHON_EXECUTABLE} ${KI_SCRIPT} --config-dir ${CONF_DIR} --errors ${DOC_WARN} --warnings ${DOC_WARN} ${DOC_LOG}
   COMMAND ${PYTHON_EXECUTABLE} ${FIX_TEX_SCRIPT} ${SPHINX_OUTPUT_DIR_LATEX}/zephyr.tex
   WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
   COMMENT "Generating LaTeX documentation"
@@ -256,14 +317,14 @@ endif()
 #
 # Dependencies and final targets
 #
-add_dependencies(html content doxy kconfig)
+add_dependencies(html content doxy_real_modified_times kconfig)
 
 add_custom_target(
   htmldocs
 )
 add_dependencies(htmldocs html)
 
-add_dependencies(latex content doxy kconfig)
+add_dependencies(latex content doxy_real_modified_times kconfig)
 
 add_custom_target(
   latexdocs

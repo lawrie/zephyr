@@ -16,6 +16,7 @@
 		zephyr,shell-uart = &usart2;
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
+		zephyr,code-partition = &slot0_partition;
 	};
 
 	leds {
@@ -54,12 +55,12 @@
 	status = "ok";
 };
 
-&i2c1 {
+arduino_i2c: &i2c1 {
 	status = "ok";
 	clock-frequency = <I2C_BITRATE_FAST>;
 };
 
-&spi1 {
+arduino_spi: &spi1 {
 	status = "ok";
 };
 
@@ -70,7 +71,7 @@
 &flash0 {
 	/*
 	 * For more information, see:
-	 * http://docs.zephyrproject.org/latest/devices/dts/flash_partitions.html
+	 * http://docs.zephyrproject.org/latest/guides/dts/index.html#flash-partitions
 	 */
 	partitions {
 		compatible = "fixed-partitions";

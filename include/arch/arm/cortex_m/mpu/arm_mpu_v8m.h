@@ -152,9 +152,9 @@
 struct arm_mpu_region_attr {
 	/* Attributes belonging to RBAR */
 	u8_t rbar: 5;
-	 /* MAIR index for attribute indirection */
+	/* MAIR index for attribute indirection */
 	u8_t mair_idx: 3;
-	 /* Region Limit Address value to be written to the RLAR register. */
+	/* Region Limit Address value to be written to the RLAR register. */
 	u32_t r_limit;
 };
 
@@ -252,7 +252,8 @@ typedef struct {
 #endif /* _ASMLANGUAGE */
 
 #define _ARCH_MEM_PARTITION_ALIGN_CHECK(start, size) \
-	BUILD_ASSERT_MSG((size > 0) && \
+	BUILD_ASSERT_MSG((size > 0) && ((u32_t)start % \
+			CONFIG_ARM_MPU_REGION_MIN_ALIGN_AND_SIZE == 0U) && \
 		((size) % CONFIG_ARM_MPU_REGION_MIN_ALIGN_AND_SIZE == 0), \
-		" the size of the partition must align " \
+		" the start and size of the partition must align " \
 		"with the minimum MPU region size.")

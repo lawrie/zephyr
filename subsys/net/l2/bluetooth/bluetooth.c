@@ -71,7 +71,7 @@ static enum net_verdict net_bt_recv(struct net_if *iface, struct net_pkt *pkt)
 static int net_bt_send(struct net_if *iface, struct net_pkt *pkt)
 {
 	struct bt_context *ctxt = net_if_get_device(iface)->driver_data;
-	struct net_buf *frags;
+	struct net_buf *buffer;
 	int length;
 	int ret;
 
@@ -91,10 +91,10 @@ static int net_bt_send(struct net_if *iface, struct net_pkt *pkt)
 	length = net_pkt_get_len(pkt);
 
 	/* Dettach data fragments for packet */
-	frags = pkt->frags;
-	pkt->frags = NULL;
+	buffer = pkt->buffer;
+	pkt->buffer = NULL;
 
-	ret = bt_l2cap_chan_send(&ctxt->ipsp_chan.chan, frags);
+	ret = bt_l2cap_chan_send(&ctxt->ipsp_chan.chan, buffer);
 	if (ret < 0) {
 		return ret;
 	}
@@ -200,7 +200,7 @@ static int ipsp_recv(struct bt_l2cap_chan *chan, struct net_buf *buf)
 		net_buf_frags_len(buf));
 
 	/* Get packet for bearer / protocol related data */
-	pkt = net_pkt_get_reserve_rx(BUF_TIMEOUT);
+	pkt = net_pkt_rx_alloc_on_iface(ctxt->iface, BUF_TIMEOUT);
 	if (!pkt) {
 		return -ENOMEM;
 	}
@@ -218,7 +218,7 @@ static int ipsp_recv(struct bt_l2cap_chan *chan, struct net_buf *buf)
 	/* Add data buffer as fragment of RX buffer, take a reference while
 	 * doing so since L2CAP will unref the buffer after return.
 	 */
-	net_pkt_frag_add(pkt, net_buf_ref(buf));
+	net_pkt_append_buffer(pkt, net_buf_ref(buf));
 
 	if (net_recv_data(ctxt->iface, pkt) < 0) {
 		NET_DBG("Packet dropped by NET stack");
@@ -354,7 +354,7 @@ static bool eir_found(u8_t type, const u8_t *data, u8_t data_len,
 		return false;
 	}
 
-	if (data_len % sizeof(u16_t) != 0) {
+	if (data_len % sizeof(u16_t) != 0U) {
 		NET_ERR("AD malformed\n");
 		return false;
 	}
@@ -397,7 +397,7 @@ static bool ad_parse(struct net_buf_simple *ad,
 		u8_t type;
 
 		/* Check for early termination */
-		if (len == 0) {
+		if (len == 0U) {
 			return false;
 		}
 

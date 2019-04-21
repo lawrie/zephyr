@@ -157,7 +157,7 @@ static int cmd_register(const struct shell *shell, size_t argc, char *argv[])
 	ret = bt_rfcomm_server_register(&rfcomm_server);
 	if (ret < 0) {
 		shell_error(shell, "Unable to register channel %x", ret);
-		rfcomm_server.channel = 0;
+		rfcomm_server.channel = 0U;
 		return -ENOEXEC;
 	} else {
 		shell_print(shell, "RFCOMM channel %u registered",
@@ -204,7 +204,7 @@ static int cmd_send(const struct shell *shell, size_t argc, char *argv[])
 	while (count--) {
 		buf = bt_rfcomm_create_pdu(&pool);
 		/* Should reserve one byte in tail for FCS */
-		len = min(rfcomm_dlc.mtu, net_buf_tailroom(buf) - 1);
+		len = MIN(rfcomm_dlc.mtu, net_buf_tailroom(buf) - 1);
 
 		net_buf_add_mem(buf, buf_data, len);
 		ret = bt_rfcomm_dlc_send(&rfcomm_dlc, buf);
@@ -233,13 +233,13 @@ static int cmd_disconnect(const struct shell *shell, size_t argc, char *argv[])
 #define HELP_NONE "[none]"
 #define HELP_ADDR_LE "<address: XX:XX:XX:XX:XX:XX> <type: (public|random)>"
 
-SHELL_CREATE_STATIC_SUBCMD_SET(rfcomm_cmds) {
+SHELL_STATIC_SUBCMD_SET_CREATE(rfcomm_cmds,
 	SHELL_CMD_ARG(register, NULL, "<channel>", cmd_register, 2, 0),
 	SHELL_CMD_ARG(connect, NULL, "<channel>", cmd_connect, 2, 0),
 	SHELL_CMD_ARG(disconnect, NULL, HELP_NONE, cmd_disconnect, 1, 0),
 	SHELL_CMD_ARG(send, NULL, "<number of packets>", cmd_send, 2, 0),
 	SHELL_SUBCMD_SET_END
-};
+);
 
 static int cmd_rfcomm(const struct shell *shell, size_t argc, char **argv)
 {

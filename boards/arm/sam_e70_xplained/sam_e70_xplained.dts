@@ -27,6 +27,7 @@
 		zephyr,shell-uart = &usart1;
 		zephyr,sram = &sram0;
 		zephyr,flash = &flash0;
+		zephyr,code-partition = &slot0_partition;
 	};
 
 	leds {
@@ -81,6 +82,10 @@
 };
 
 &usbhs {
+	status = "ok";
+};
+
+&pwm0 {
 	status = "ok";
 };
 

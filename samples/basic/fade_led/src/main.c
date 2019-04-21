@@ -28,7 +28,7 @@
 #if defined(CONFIG_PWM_NRF5_SW)
 #define PWM_DRIVER CONFIG_PWM_NRF5_SW_0_DEV_NAME
 #else
-#define PWM_DRIVER CONFIG_PWM_0_NAME
+#define PWM_DRIVER DT_NORDIC_NRF_PWM_PWM_0_LABEL
 #endif  /* CONFIG_PWM_NRF5_SW */
 #define PWM_CHANNEL LED0_GPIO_PIN
 #elif defined(CONFIG_SOC_ESP32)
@@ -38,6 +38,10 @@
 /* get the defines from dt (based on alias 'pwm-led0') */
 #define PWM_DRIVER	PWM_LED0_PWM_CONTROLLER
 #define PWM_CHANNEL	PWM_LED0_PWM_CHANNEL
+#elif defined(CONFIG_BOARD_HIFIVE1)
+/* Blink the blue channel of the RGB LED */
+#define PWM_DRIVER	LED1_PWM_CONTROLLER
+#define PWM_CHANNEL	LED1_PWM_CHANNEL
 #else
 #error "Choose supported PWM driver"
 #endif
@@ -46,7 +50,7 @@
  * 50 is flicker fusion threshold. Modulated light will be perceived
  * as steady by our eyes when blinking rate is at least 50.
  */
-#define PERIOD (USEC_PER_SEC / 50)
+#define PERIOD (USEC_PER_SEC / 50U)
 
 /* in micro second */
 #define FADESTEP	2000

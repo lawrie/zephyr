@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 zephyr_library()
 
 zephyr_library_sources_ifdef(CONFIG_AUDIO_TLV320DAC	tlv320dac310x.c)
@@ -11,3 +13,5 @@ zephyr_library_sources_ifdef(CONFIG_AUDIO_INTEL_DMIC	decimation/pdm_decim_int32_
 zephyr_library_sources_ifdef(CONFIG_AUDIO_INTEL_DMIC	decimation/pdm_decim_int32_06_4156_5100_010_095.c)
 zephyr_library_sources_ifdef(CONFIG_AUDIO_INTEL_DMIC	decimation/pdm_decim_int32_08_4156_5380_010_090.c)
 zephyr_library_sources_ifdef(CONFIG_AUDIO_INTEL_DMIC	decimation/pdm_decim_table.c)
+zephyr_library_sources_ifdef(CONFIG_AUDIO_MPXXDTYY	mpxxdtyy.c)
+zephyr_library_sources_ifdef(CONFIG_AUDIO_MPXXDTYY	mpxxdtyy-i2s.c)

@@ -109,8 +109,6 @@ u8_t dst_mac[8] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0xbb, 0xaa };
 
 /* 6CO contexts */
 static struct net_icmpv6_nd_opt_6co ctx1 = {
-	.type = 0x22,
-	.len = 0x02,
 	.context_len = 0x40,
 	.flag = 0x11,
 	.reserved = 0,
@@ -123,8 +121,6 @@ static struct net_icmpv6_nd_opt_6co ctx1 = {
 		      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } } }
 
 static struct net_icmpv6_nd_opt_6co ctx2 = {
-	.type = 0x22,
-	.len = 0x03,
 	.context_len = 0x80,
 	.flag = 0x12,
 	.reserved = 0,
@@ -312,19 +308,18 @@ static struct net_pkt *create_pkt(struct net_6lo_data *data)
 	u16_t len;
 	int remaining;
 
-	pkt = net_pkt_get_reserve_tx(K_FOREVER);
+	pkt = net_pkt_alloc_on_iface(net_if_get_default(), K_FOREVER);
 	if (!pkt) {
 		return NULL;
 	}
 
-	net_pkt_set_iface(pkt, net_if_get_default());
 	net_pkt_set_ip_hdr_len(pkt, NET_IPV6H_LEN);
 
 	net_pkt_lladdr_src(pkt)->addr = src_mac;
-	net_pkt_lladdr_src(pkt)->len = 8;
+	net_pkt_lladdr_src(pkt)->len = 8U;
 
 	net_pkt_lladdr_dst(pkt)->addr = dst_mac;
-	net_pkt_lladdr_dst(pkt)->len = 8;
+	net_pkt_lladdr_dst(pkt)->len = 8U;
 
 	frag = net_pkt_get_frag(pkt, K_FOREVER);
 	if (!frag) {
@@ -863,7 +858,7 @@ static void test_6lo(struct net_6lo_data *data)
 #if DEBUG > 0
 	TC_PRINT("length before compression %zu\n",
 		 net_pkt_get_len(pkt));
-	net_hexdump_frags("before-compression", pkt, false);
+	net_pkt_hexdump(pkt, "before-compression");
 #endif
 
 	zassert_true((net_6lo_compress(pkt, data->iphc) >= 0),
@@ -872,7 +867,7 @@ static void test_6lo(struct net_6lo_data *data)
 #if DEBUG > 0
 	TC_PRINT("length after compression %zu\n",
 		 net_pkt_get_len(pkt));
-	net_hexdump_frags("after-compression", pkt, false);
+	net_pkt_hexdump(pkt, "after-compression");
 #endif
 
 	zassert_true(net_6lo_uncompress(pkt),
@@ -880,7 +875,7 @@ static void test_6lo(struct net_6lo_data *data)
 #if DEBUG > 0
 	TC_PRINT("length after uncompression %zu\n",
 	       net_pkt_get_len(pkt));
-	net_hexdump_frags("after-uncompression", pkt, false);
+	net_pkt_hexdump(pkt, "after-uncompression");
 #endif
 
 	zassert_true(compare_data(pkt, data), NULL);

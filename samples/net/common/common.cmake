@@ -1,14 +1,3 @@
-# Common routines used in net samples
+# SPDX-License-Identifier: Apache-2.0
 
-if(CONFIG_NET_TESTING)
-  target_include_directories(
-    app
-    PRIVATE
-    $ENV{ZEPHYR_BASE}/samples/net/common/
-    )
-  target_compile_definitions(
-    app
-    PRIVATE
-    NET_TESTING_SERVER=1
-    )
-endif()
+# Common routines used in net samples

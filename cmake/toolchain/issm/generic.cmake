@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 #
 # The ISSM standalone toolchain provides both the x86 IAMCU and elf32 ARC
 # toolchains. Currently supported version is '2016-05-12':
@@ -37,5 +39,6 @@ set(TOOLCHAIN_HOME ${ISSM_INSTALLATION_PATH}/tools/compiler/${specific_version})
 set(CROSS_COMPILE ${TOOLCHAIN_HOME}/bin/${CROSS_COMPILE_TARGET}-)
 set(SYSROOT_DIR   ${TOOLCHAIN_HOME}/${SYSROOT_TARGET})
 
+set(TOOLCHAIN_HAS_NEWLIB ON CACHE BOOL "True if toolchain supports newlib")
 
 # TODO: What was _version used for?

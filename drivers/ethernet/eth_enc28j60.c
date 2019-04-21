@@ -381,11 +381,11 @@ static void eth_enc28j60_init_mac(struct device *dev)
 	/* Configure MAC address */
 	eth_enc28j60_set_bank(dev, ENC28J60_REG_MAADR0);
 	eth_enc28j60_write_reg(dev, ENC28J60_REG_MAADR0,
-			       CONFIG_ETH_ENC28J60_0_MAC5);
+			       DT_MICROCHIP_ENC28J60_0_LOCAL_MAC_ADDRESS_5);
 	eth_enc28j60_write_reg(dev, ENC28J60_REG_MAADR1,
-			       CONFIG_ETH_ENC28J60_0_MAC4);
+			       DT_MICROCHIP_ENC28J60_0_LOCAL_MAC_ADDRESS_4);
 	eth_enc28j60_write_reg(dev, ENC28J60_REG_MAADR2,
-			       CONFIG_ETH_ENC28J60_0_MAC3);
+			       DT_MICROCHIP_ENC28J60_0_LOCAL_MAC_ADDRESS_3);
 	eth_enc28j60_write_reg(dev, ENC28J60_REG_MAADR3, MICROCHIP_OUI_B2);
 	eth_enc28j60_write_reg(dev, ENC28J60_REG_MAADR4, MICROCHIP_OUI_B1);
 	eth_enc28j60_write_reg(dev, ENC28J60_REG_MAADR5, MICROCHIP_OUI_B0);
@@ -500,7 +500,6 @@ static int eth_enc28j60_rx(struct device *dev)
 
 	do {
 		struct net_buf *pkt_buf = NULL;
-		struct net_buf *last_buf = NULL;
 		u16_t frm_len = 0U;
 		u8_t info[RSV_SIZE];
 		struct net_pkt *pkt;
@@ -534,39 +533,25 @@ static int eth_enc28j60_rx(struct device *dev)
 		/* Get the frame length from the rx status vector,
 		 * minus CRC size at the end which is always present
 		 */
-		frm_len = (info[1] << 8) | (info[0] - 4);
+		frm_len = sys_get_le16(info) - 4;
 		lengthfr = frm_len;
 
 		/* Get the frame from the buffer */
-		pkt = net_pkt_get_reserve_rx(config->timeout);
+		pkt = net_pkt_rx_alloc_with_buffer(context->iface, frm_len,
+						   AF_UNSPEC, 0,
+						   config->timeout);
 		if (!pkt) {
 			LOG_ERR("Could not allocate rx buffer");
 			eth_stats_update_errors_rx(context->iface);
 			goto done;
 		}
 
+		pkt_buf = pkt->buffer;
+
 		do {
 			size_t frag_len;
 			u8_t *data_ptr;
 			size_t spi_frame_len;
-
-			/* Reserve a data frag to receive the frame */
-			pkt_buf = net_pkt_get_frag(pkt, config->timeout);
-			if (!pkt_buf) {
-				LOG_ERR("Could not allocate data buffer");
-				eth_stats_update_errors_rx(context->iface);
-				net_pkt_unref(pkt);
-
-				goto done;
-			}
-
-			if (!last_buf) {
-				net_pkt_frag_insert(pkt, pkt_buf);
-			} else {
-				net_buf_frag_insert(last_buf, pkt_buf);
-			}
-
-			last_buf = pkt_buf;
 
 			data_ptr = pkt_buf->data;
 
@@ -585,6 +570,7 @@ static int eth_enc28j60_rx(struct device *dev)
 
 			/* One fragment has been written via SPI */
 			frm_len -= spi_frame_len;
+			pkt_buf = pkt_buf->frags;
 		} while (frm_len > 0);
 
 		/* Let's pop the useless CRC */
@@ -599,7 +585,9 @@ static int eth_enc28j60_rx(struct device *dev)
 
 		/* Feed buffer frame to IP stack */
 		LOG_DBG("Received packet of length %u", lengthfr);
-		net_recv_data(context->iface, pkt);
+		if (net_recv_data(context->iface, pkt) < 0) {
+			net_pkt_unref(pkt);
+		}
 done:
 		/* Free buffer memory and decrement rx counter */
 		eth_enc28j60_set_bank(dev, ENC28J60_REG_ERXRDPTL);
@@ -759,33 +747,34 @@ static struct eth_enc28j60_runtime eth_enc28j60_0_runtime = {
 		MICROCHIP_OUI_B0,
 		MICROCHIP_OUI_B1,
 		MICROCHIP_OUI_B2,
-		CONFIG_ETH_ENC28J60_0_MAC3,
-		CONFIG_ETH_ENC28J60_0_MAC4,
-		CONFIG_ETH_ENC28J60_0_MAC5
+		DT_MICROCHIP_ENC28J60_0_LOCAL_MAC_ADDRESS_3,
+		DT_MICROCHIP_ENC28J60_0_LOCAL_MAC_ADDRESS_4,
+		DT_MICROCHIP_ENC28J60_0_LOCAL_MAC_ADDRESS_5
 	},
-	.tx_rx_sem = _K_SEM_INITIALIZER(eth_enc28j60_0_runtime.tx_rx_sem,
+	.tx_rx_sem = Z_SEM_INITIALIZER(eth_enc28j60_0_runtime.tx_rx_sem,
 					1,  UINT_MAX),
-	.int_sem  = _K_SEM_INITIALIZER(eth_enc28j60_0_runtime.int_sem,
+	.int_sem  = Z_SEM_INITIALIZER(eth_enc28j60_0_runtime.int_sem,
 				       0, UINT_MAX),
 };
 
 static const struct eth_enc28j60_config eth_enc28j60_0_config = {
-	.gpio_port = CONFIG_ETH_ENC28J60_0_GPIO_PORT_NAME,
-	.gpio_pin = CONFIG_ETH_ENC28J60_0_GPIO_PIN,
-	.spi_port = CONFIG_ETH_ENC28J60_0_SPI_PORT_NAME,
-	.spi_freq  = CONFIG_ETH_ENC28J60_0_SPI_BUS_FREQ,
-	.spi_slave = CONFIG_ETH_ENC28J60_0_SLAVE,
+	.gpio_port = DT_MICROCHIP_ENC28J60_0_INT_GPIOS_CONTROLLER,
+	.gpio_pin = DT_MICROCHIP_ENC28J60_0_INT_GPIOS_PIN,
+	.spi_port = DT_MICROCHIP_ENC28J60_0_BUS_NAME,
+	.spi_freq  = DT_MICROCHIP_ENC28J60_0_SPI_MAX_FREQUENCY,
+	.spi_slave = DT_MICROCHIP_ENC28J60_0_BASE_ADDRESS,
 #ifdef CONFIG_ETH_ENC28J60_0_GPIO_SPI_CS
-	.spi_cs_port = CONFIG_ETH_ENC28J60_0_SPI_CS_PORT_NAME,
-	.spi_cs_pin = CONFIG_ETH_ENC28J60_0_SPI_CS_PIN,
+	.spi_cs_port = DT_MICROCHIP_ENC28J60_0_CS_GPIO_CONTROLLER,
+	.spi_cs_pin = DT_MICROCHIP_ENC28J60_0_CS_GPIO_PIN,
 #endif /* CONFIG_ETH_ENC28J60_0_GPIO_SPI_CS */
-	.full_duplex = CONFIG_ETH_EN28J60_0_FULL_DUPLEX,
-	.timeout = CONFIG_ETH_EN28J60_TIMEOUT,
+	.full_duplex = IS_ENABLED(CONFIG_ETH_ENC28J60_0_FULL_DUPLEX),
+	.timeout = CONFIG_ETH_ENC28J60_TIMEOUT,
 };
 
-NET_DEVICE_INIT(enc28j60_0, CONFIG_ETH_ENC28J60_0_NAME,
+NET_DEVICE_INIT(enc28j60_0, DT_MICROCHIP_ENC28J60_0_LABEL,
 		eth_enc28j60_init, &eth_enc28j60_0_runtime,
 		&eth_enc28j60_0_config, CONFIG_ETH_INIT_PRIORITY, &api_funcs,
-		ETHERNET_L2, NET_L2_GET_CTX_TYPE(ETHERNET_L2), 1500);
+		ETHERNET_L2, NET_L2_GET_CTX_TYPE(ETHERNET_L2),
+		NET_ETH_MTU);
 
 #endif /* CONFIG_ETH_ENC28J60_0 */

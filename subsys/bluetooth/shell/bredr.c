@@ -174,7 +174,7 @@ static int cmd_discovery(const struct shell *shell, size_t argc, char *argv[])
 		struct bt_br_discovery_param param;
 
 		param.limited = false;
-		param.length = 8;
+		param.length = 8U;
 
 		if (argc > 2) {
 			param.length = atoi(argv[2]);
@@ -274,7 +274,7 @@ static int cmd_l2cap_register(const struct shell *shell,
 
 	if (bt_l2cap_br_server_register(&br_server) < 0) {
 		shell_error(shell, "Unable to register psm");
-		br_server.psm = 0;
+		br_server.psm = 0U;
 		return -ENOEXEC;
 	} else {
 		shell_print(shell, "L2CAP psm %u registered", br_server.psm);
@@ -534,7 +534,7 @@ static int cmd_sdp_find_record(const struct shell *shell,
 #define HELP_NONE "[none]"
 #define HELP_ADDR_LE "<address: XX:XX:XX:XX:XX:XX> <type: (public|random)>"
 
-SHELL_CREATE_STATIC_SUBCMD_SET(br_cmds) {
+SHELL_STATIC_SUBCMD_SET_CREATE(br_cmds,
 	SHELL_CMD_ARG(auth-pincode, NULL, "<pincode>", cmd_auth_pincode, 2, 0),
 	SHELL_CMD_ARG(connect, NULL, "<address>", cmd_connect, 2, 0),
 	SHELL_CMD_ARG(discovery, NULL,
@@ -546,7 +546,7 @@ SHELL_CREATE_STATIC_SUBCMD_SET(br_cmds) {
 	SHELL_CMD_ARG(pscan, NULL, "<value: on, off>", cmd_connectable, 2, 0),
 	SHELL_CMD_ARG(sdp-find, NULL, "<HFPAG>", cmd_sdp_find_record, 2, 0),
 	SHELL_SUBCMD_SET_END
-};
+);
 
 static int cmd_br(const struct shell *shell, size_t argc, char **argv)
 {

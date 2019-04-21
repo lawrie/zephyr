@@ -2,12 +2,13 @@ sample:
   description: TBD
   name: TBD
 tests:
-  test:
+  sample.bluetooth.peripheral_hr:
     harness: bluetooth
     platform_whitelist: qemu_cortex_m3 qemu_x86
     tags: bluetooth
-  test.overlay-shield_frdm_kw41z:
+  sample.bluetooth.peripheral_hr.frdm_kw41z_shield:
     harness: bluetooth
-    extra_args: OVERLAY_CONFIG=overlay-shield_frdm_kw41z.conf
-    platform_whitelist: mimxrt1050_evk frdm_k64f
+    platform_whitelist: mimxrt1020_evk mimxrt1050_evk mimxrt1060_evk frdm_k64f
     tags: bluetooth
+    extra_args: SHIELD=frdm_kw41z
+

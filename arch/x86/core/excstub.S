@@ -26,7 +26,7 @@
 	GTEXT(_kernel_oops_handler)
 
 	/* externs (internal APIs) */
-	GTEXT(_do_kernel_oops)
+	GTEXT(z_do_kernel_oops)
 
 /**
  *
@@ -72,7 +72,9 @@ SECTION_FUNC(TEXT, _exception_enter)
 
 	cld
 
-
+#ifdef CONFIG_X86_KPTI
+	call z_x86_trampoline_to_kernel
+#endif
 	/*
 	 * Swap ecx and handler function on the current stack;
 	 */
@@ -105,12 +107,25 @@ SECTION_FUNC(TEXT, _exception_enter)
 	pushl	%ebx
 	pushl	%ebp
 
+#ifdef CONFIG_USERSPACE
+	/* Test if interrupted context was in ring 3 */
+	testb	$3, 36(%esp)
+	jz 1f
+	/* It was. The original stack pointer is on the stack 44 bytes
+	 * from the current top
+	 */
+	pushl	44(%esp)
+	jmp 2f
+1:
+#endif
 	leal	44(%esp), %eax   /* Calculate ESP before interrupt occurred */
 	pushl	%eax             /* Save calculated ESP */
-
+#ifdef CONFIG_USERSPACE
+2:
+#endif
 	/* ESP is pointing to the ESF at this point */
 
-#if defined(CONFIG_FP_SHARING)
+#if defined(CONFIG_LAZY_FP_SHARING)
 
 	movl	_kernel + _kernel_offset_to_current, %edx
 
@@ -119,7 +134,7 @@ SECTION_FUNC(TEXT, _exception_enter)
 
 	/*
 	 * Set the _EXC_ACTIVE state bit of the current thread.
-	 * This enables _Swap() to preserve the thread's FP registers
+	 * This enables z_swap() to preserve the thread's FP registers
 	 * (where needed) if the exception handler causes a context switch.
 	 * It also indicates to debug tools that an exception is being
 	 * handled in the event of a context switch.
@@ -127,7 +142,7 @@ SECTION_FUNC(TEXT, _exception_enter)
 
 	orb	$_EXC_ACTIVE, _thread_offset_to_thread_state(%edx)
 
-#endif /* CONFIG_FP_SHARING */
+#endif /* CONFIG_LAZY_FP_SHARING */
 
 	/*
 	 * restore interrupt enable state, then call the handler
@@ -157,7 +172,7 @@ allDone:
 	addl	$0x4, %esp
 #endif
 
-#if defined(CONFIG_FP_SHARING)
+#if defined(CONFIG_LAZY_FP_SHARING)
 
 	movl	_kernel + _kernel_offset_to_current, %ecx
 
@@ -187,7 +202,7 @@ allDone:
 	andb	$~_EXC_ACTIVE, _thread_offset_to_thread_state(%ecx)
 
 nestedException:
-#endif /* CONFIG_FP_SHARING */
+#endif /* CONFIG_LAZY_FP_SHARING */
 
 	/*
 	 * Pop the non-volatile registers from the stack.
@@ -210,11 +225,11 @@ nestedException:
 	addl	$4, %esp	/* "pop" error code */
 
 	/* Pop of EFLAGS will re-enable interrupts and restore direction flag */
-	iret
+	KPTI_IRET
 
 #if CONFIG_X86_KERNEL_OOPS
 SECTION_FUNC(TEXT, _kernel_oops_handler)
 	push $0 /* dummy error code */
-	push $_do_kernel_oops
+	push $z_do_kernel_oops
 	jmp _exception_enter
 #endif

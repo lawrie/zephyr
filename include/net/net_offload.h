@@ -19,8 +19,6 @@
  * @{
  */
 
-#if defined(CONFIG_NET_OFFLOAD)
-
 #include <net/buf.h>
 #include <net/net_ip.h>
 #include <net/net_context.h>
@@ -80,7 +78,6 @@ struct net_offload {
 	int (*send)(struct net_pkt *pkt,
 		    net_context_send_cb_t cb,
 		    s32_t timeout,
-		    void *token,
 		    void *user_data);
 
 	/**
@@ -91,7 +88,6 @@ struct net_offload {
 		      socklen_t addrlen,
 		      net_context_send_cb_t cb,
 		      s32_t timeout,
-		      void *token,
 		      void *user_data);
 
 	/**
@@ -294,7 +290,6 @@ static inline int net_offload_accept(struct net_if *iface,
  * @param cb Caller-supplied callback function.
  * @param timeout Timeout for the connection. Possible values
  * are K_FOREVER, K_NO_WAIT, >0.
- * @param token Caller specified value that is passed as is to callback.
  * @param user_data Caller-supplied user data.
  *
  * @return 0 if ok, < 0 if error
@@ -303,14 +298,13 @@ static inline int net_offload_send(struct net_if *iface,
 				   struct net_pkt *pkt,
 				   net_context_send_cb_t cb,
 				   s32_t timeout,
-				   void *token,
 				   void *user_data)
 {
 	NET_ASSERT(iface);
 	NET_ASSERT(net_if_offload(iface));
 	NET_ASSERT(net_if_offload(iface)->send);
 
-	return net_if_offload(iface)->send(pkt, cb, timeout, token, user_data);
+	return net_if_offload(iface)->send(pkt, cb, timeout, user_data);
 }
 
 /**
@@ -337,7 +331,6 @@ static inline int net_offload_send(struct net_if *iface,
  * @param cb Caller-supplied callback function.
  * @param timeout Timeout for the connection. Possible values
  * are K_FOREVER, K_NO_WAIT, >0.
- * @param token Caller specified value that is passed as is to callback.
  * @param user_data Caller-supplied user data.
  *
  * @return 0 if ok, < 0 if error
@@ -348,7 +341,6 @@ static inline int net_offload_sendto(struct net_if *iface,
 				     socklen_t addrlen,
 				     net_context_send_cb_t cb,
 				     s32_t timeout,
-				     void *token,
 				     void *user_data)
 {
 	NET_ASSERT(iface);
@@ -356,7 +348,7 @@ static inline int net_offload_sendto(struct net_if *iface,
 	NET_ASSERT(net_if_offload(iface)->sendto);
 
 	return net_if_offload(iface)->sendto(pkt, dst_addr, addrlen, cb,
-				      timeout, token, user_data);
+				      timeout, user_data);
 }
 
 /**
@@ -431,8 +423,6 @@ static inline int net_offload_put(struct net_if *iface,
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* CONFIG_NET_OFFLOAD */
 
 /**
  * @}

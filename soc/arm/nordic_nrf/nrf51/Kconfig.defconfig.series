@@ -20,18 +20,11 @@ config SYS_CLOCK_HW_CYCLES_PER_SEC
 config SYS_POWER_MANAGEMENT
 	default y
 
-config ARCH_HAS_CUSTOM_BUSY_WAIT
-	default y
-
 config NUM_IRQS
 	int
 	default 26
 
-if SENSOR
-
 config TEMP_NRF5
-	default y
-
-endif # SENSOR
+	default SENSOR
 
 endif # SOC_SERIES_NRF51X
