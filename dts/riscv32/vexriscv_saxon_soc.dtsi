@@ -31,20 +31,20 @@
 		compatible = "spinal,saxon";
 		ranges;
 
-		gpioA: gpio@F0000000 {
+		gpioA: gpio@10000000 {
 			compatible = "spinal,lib-io-gpio";
 			gpio-controller;
 			interrupt-parent = <&plic>;
 			interrupts = <2 3>;
-			reg = <0xF0000000 0x1000>;
+			reg = <0x10000000 0x1000>;
 			reg-names = "control";
 			status = "disabled";
 			#gpio-cells = <2>;
 		};
 		
-		uart0: uart@F0010000 {
+		uart0: uart@10010000 {
 			compatible = "spinal,lib-com-uart";
-			reg = <0xF0010000 0x1000>;
+			reg = <0x10010000 0x1000>;
 			label = "uart0";
 			status = "disabled";
 			current-speed = <0>;
@@ -58,9 +58,9 @@
 			compatible = "riscv,plic0";			
 			interrupt-controller;
 			interrupts-extended = <&hlic 11>;
-			reg = <0xF00F0000 0x1000
-			       0xF00F2000 0x2000
-			       0xF00FF000 0x1000>;
+			reg = <0x10C00000 0x1000
+			       0x10C02000 0x2000
+			       0x10C0F000 0x1000>;
 			reg-names = "prio", "irq_en", "reg";
 			riscv,max-priority = <3>;
 			riscv,ndev = <52>;

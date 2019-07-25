@@ -34,7 +34,7 @@ config XIP
 
 config RISCV_ROM_BASE_ADDR
 	hex
-	default 0x01100000
+	default 0x20100000
 
 config RISCV_ROM_SIZE
 	hex
@@ -50,11 +50,11 @@ config RISCV_RAM_SIZE
 
 config RISCV_MTIME_BASE
 	hex
-	default 0xF0008000
+	default 0x10008000
 
 config RISCV_MTIMECMP_BASE
 	hex
-	default 0xF0008008
+	default 0x10008008
 
 
 config SAXON_GPIOA
