@@ -60,7 +60,7 @@
 			interrupts-extended = <&hlic 11>;
 			reg = <0x10C00000 0x1000
 			       0x10C02000 0x2000
-			       0x10C0F000 0x1000>;
+			       0x10E00000 0x1000>;
 			reg-names = "prio", "irq_en", "reg";
 			riscv,max-priority = <3>;
 			riscv,ndev = <52>;
